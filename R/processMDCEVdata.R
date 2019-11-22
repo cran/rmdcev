@@ -1,16 +1,19 @@
 #' @title processMDCEVdata
 #' @description Process MDCEV data
-#' @inheritParams FitMDCEV
+#' @inheritParams mdcev
 #' @param model_options list of model options
 #' @keywords internal
-processMDCEVdata <- function(data, psi_formula, lc_formula, model_options){
+processMDCEVdata <- function(formula, data, model_options){
 
-	dat_psi <- stats::model.matrix(psi_formula, data)
+	formula <- Formula::Formula(formula)
+	psi.vars <- stats::formula(formula, rhs = 1, lhs = 0)
+
+	dat_psi <- stats::model.matrix(psi.vars, data)
 
 	NPsi <- ncol(dat_psi)
 
-	J <- length(unique(data$good))
-	I <- length(unique(data$id))
+	J <- nrow(unique(attr(data, "index")["alt"]))
+	I <- nrow(unique(attr(data, "index")["id"]))
 
 	if (model_options$model == "gamma"){
 		model_num <- 1
@@ -23,10 +26,14 @@ processMDCEVdata <- function(data, psi_formula, lc_formula, model_options){
 	} else
 		stop("No model specificied. Choose a model specification")
 
-	# convert quant/price to matrices
-	price <- matrix(data$price, ncol = J, byrow = TRUE)
-	quant <- matrix(data$quant, ncol = J, byrow = TRUE)
-	income <- matrix(data$income, ncol = J, byrow = TRUE)[,1]
+	# convert quant/price to matrices and income to vector
+	price.name <- attr(data, "price")
+	quant.name <- attr(data, "choice")
+	income.name <- attr(data, "income")
+
+	price <- matrix(data[[price.name]], ncol = J, byrow = TRUE)
+	quant <- matrix(data[[quant.name]], ncol = J, byrow = TRUE)
+	income <- as.vector(matrix(data[[income.name]], ncol = J, byrow = TRUE)[,1])
 
 	# Put data into one list for rstan
 	stan_data =
@@ -35,13 +42,13 @@ processMDCEVdata <- function(data, psi_formula, lc_formula, model_options){
 			 dat_psi = as.matrix(dat_psi),
 			 price_j = price,
 			 quant_j = quant,
-			 income = as.vector(income),
+			 income = income,
 			 flat_priors = model_options$flat_priors,
-			 prior_psi = model_options$prior_psi_sd,
-			 prior_gamma = model_options$prior_gamma_sd,
-			 prior_alpha = model_options$prior_alpha_sd,
-			 prior_scale = model_options$prior_scale_sd,
-			 prior_delta = model_options$prior_delta_sd,
+			 prior_psi_sd = model_options$prior_psi_sd,
+			 prior_gamma_sd = model_options$prior_gamma_sd,
+			 prior_alpha_sd = model_options$prior_alpha_sd,
+			 prior_scale_sd = model_options$prior_scale_sd,
+			 prior_delta_sd = model_options$prior_delta_sd,
 			 model_num = model_num,
 			 fixed_scale1 = model_options$fixed_scale1,
 			 trunc_data = model_options$trunc_data,
@@ -49,9 +56,11 @@ processMDCEVdata <- function(data, psi_formula, lc_formula, model_options){
 			 alpha_fixed = model_options$alpha_fixed)
 
 	if (model_options$n_classes > 1){
+		lc.vars <- formula(formula, rhs = 2, lhs = 0)
+
 		data_class <- tbl_df(data) %>%
 			dplyr::distinct(id, .keep_all = T) %>%
-			stats::model.matrix(lc_formula, .)
+			stats::model.matrix(lc.vars, .)
 		stan_data$data_class <- as.matrix(data_class)
 		stan_data$L <- ncol(data_class) # number of membership variables
 	}

@@ -1,11 +1,15 @@
-#' @title FitMDCEV
+#' @title mdcev
 #' @description Fit a MDCEV model using MLE or Bayes
-#' @param psi_formula Formula for psi
-#' @param lc_formula Formula for latent class
-#' @param data The (IxJ) data to be passed to Stan including 1) id, 2) good, 3) quant,
-#' 4) price, 5) income, and columns for psi variables. Arrange data by id then good.
-#' Notes I is number of individuals and J is number of non-numeraire goods.
-#' @param weights An optional vector of sampling or frequency weights.
+#' @param formula Formula for the model to be estimated.The formula is divided in
+#' two parts, separated by the symbol \code{|}. The first part is reserved for
+#' variables in the psi parameter. These can include alternative-specific and
+#' individual-specific variables. The second part corresponds for individual-specific
+#' variables that enter in the probability assignment in models with latent classes.
+#' @param data The (IxJ) data to be passed to Stan of class \code{\link[rmdcev]{mdcev.data}}
+#'  including 1) id, 2) alt, 3) quant, 4) price, 5) income, and columns for psi variables.
+#'  Arrange data by id then alt. Note: I is number of individuals and J is number of
+#'  non-numeraire alternatives.
+#' @param weights an optional vector of weights. Default to 1.
 #' @param model A string indicating which model specification is estimated.
 #' The options are "alpha", "gamma", "hybrid" and "hybrid0".
 #' @param n_classes The number of latent classes.
@@ -21,17 +25,17 @@
 #' @param std_errors Compute standard errors using the delta method ("deltamethod")
 #' or multivariate normal draws ("mvn"). The default is "mvn" as only mvn parameter draws are required
 #' for demand and welfare simulation.
-#' @param n_draws The number of MVN draws for standard error calculations
+#' @param n_draws The number of multivariate normal draws for standard error calculations.
 #' @param keep_loglik Whether to keep the log_lik calculations
 #' @param hessian Wheter to keep the Hessian matrix
 #' @param initial.parameters Specify initial parameters intead of starting at random.
 #' Initial parameter values should be included in a named list. For the "hybrid" specification,
 #' initial parameters can be specified as:
 #' init = list(psi = array(0, dim = c(1, num_psi)),
-#'             gamma = array(1, dim = c(1, num_goods)),
+#'             gamma = array(1, dim = c(1, num_alt)),
 #'             alpha = array(0.5, dim = c(1, 0)),
 #'             scale = array(1, dim = c(1)))
-#' where num_psi is number of psi parameters and num_goods is number of non-numeraire goods
+#' where num_psi is number of psi parameters and num_alt is number of non-numeraire alternatives
 #' @param prior_psi_sd standard deviation for normal prior with mean 0.
 #' @param prior_gamma_sd standard deviation for normal prior with mean 0.
 #' @param prior_alpha_sd standard deviation for normal prior with mean 0.5.
@@ -53,65 +57,76 @@
 #' @param show_stan_warnings Whether to show warnings from Stan.
 #' @param ... Additional parameters to pass on to \code{rstan::stan}
 #'     and \code{rstan::sampling}.
-#' @return A stanfit object
+#' @return A object of class mdcev
 #' @export
 #' @examples
 #' \donttest{
 #' data(data_rec, package = "rmdcev")
 #'
-#' mdcev_est <- FitMDCEV(psi_formula = ~ 1,
-#' data = subset(data_rec, id < 500),
+#' data_rec <- mdcev.data(data_rec, subset = id < 500,
+#'                 alt.var = "alt", choice = "quant")
+#'
+#' mdcev_est <- mdcev( ~ 1,
+#' data = data_rec,
 #' model = "hybrid0",
 #' algorithm = "MLE")
 #'}
-FitMDCEV <- function(data,
-					 psi_formula = NULL,
-					 lc_formula = NULL,
-					 weights = NULL,
-					 model = c("alpha", "gamma", "hybrid", "hybrid0"),
-					 n_classes = 1,
-					 fixed_scale1 = 0,
-					 trunc_data = 0,
-					 seed = "123",
-					 max_iterations = 2000,
-					 initial.parameters = NULL,
-					 algorithm = c("MLE", "Bayes"),
-					 flat_priors = NULL,
-					 print_iterations = TRUE,
-					 #mle_tol = 0.0001,
-					 hessian = TRUE,
-					 prior_psi_sd = 10,
-					 prior_gamma_sd = 10,
-					 prior_alpha_sd = 0.5,
-					 prior_scale_sd = 1,
-					 prior_delta_sd = 10,
-					 gamma_fixed = 0,
-					 alpha_fixed = 0,
-					 std_errors = "mvn",
-					 n_draws = 50,
-					 keep_loglik = 0,
-					 random_parameters = "fixed",
-					 show_stan_warnings = TRUE,
-					 n_iterations = 200,
-					 n_chains = 4,
-					 n_cores = 4,
-					 max_tree_depth = 10,
-					 adapt_delta = 0.8,
-					 lkj_shape_prior = 4)
+mdcev <- function(formula = NULL, data,
+				 weights = NULL,
+				 model = c("alpha", "gamma", "hybrid", "hybrid0"),
+				 n_classes = 1,
+				 fixed_scale1 = 0,
+				 trunc_data = 0,
+				 seed = "123",
+				 max_iterations = 2000,
+				 initial.parameters = NULL,
+				 algorithm = c("MLE", "Bayes"),
+				 flat_priors = NULL,
+				 print_iterations = TRUE,
+				 hessian = TRUE,
+				 prior_psi_sd = 10,
+				 prior_gamma_sd = 10,
+				 prior_alpha_sd = 0.5,
+				 prior_scale_sd = 1,
+				 prior_delta_sd = 10,
+				 gamma_fixed = 0,
+				 alpha_fixed = 0,
+				 std_errors = "mvn",
+				 n_draws = 50,
+				 keep_loglik = 0,
+				 random_parameters = "fixed",
+				 show_stan_warnings = TRUE,
+				 n_iterations = 200,
+				 n_chains = 4,
+				 n_cores = 4,
+				 max_tree_depth = 10,
+				 adapt_delta = 0.8,
+				 lkj_shape_prior = 4,
+			     ...)
 {
-	CheckMdcevData(data)
 
+	start.time <- proc.time()
+
+	# Check models
 	if (algorithm == "Bayes" && n_classes > 1)
 		stop("Bayesian estimation can only be used with one class. Switch algorithm to MLE or choose n_classes = 1", "\n")
 
 	if (algorithm == "MLE" && random_parameters != "fixed")
 		stop("MLE can only be used with fixed parameters. Switch random_parameters to 'fixed' or change algorithm to Bayes", "\n")
 
+	if (!inherits(data, "mdcev.data")) stop("Data must be of class mdcev.data")
+
 	if (algorithm == "MLE" && is.null(flat_priors)){
 		flat_priors <- 1
 	} else if (algorithm == "Bayes" && is.null(flat_priors))
 		flat_priors <- 0
 
+	if (random_parameters == "fixed"){
+		gamma_fixed <- 1
+		alpha_fixed <- 1
+	}
+
+	# Put model options in a list
 	mle_options <- list(fixed_scale1 = fixed_scale1,
 						model = model,
 						n_classes = n_classes,
@@ -142,9 +157,7 @@ FitMDCEV <- function(data,
 						show_stan_warnings = show_stan_warnings,
 						lkj_shape_prior = lkj_shape_prior)
 
-	start.time <- proc.time()
-
-	stan_data <- processMDCEVdata(data, psi_formula, lc_formula, mle_options)
+	stan_data <- processMDCEVdata(formula, data, mle_options)
 
 	parms_info <- CreateParmInfo(stan_data, algorithm, random_parameters)
 
@@ -155,28 +168,23 @@ FitMDCEV <- function(data,
 	stan_data$weights <- as.vector(weights)
 
 	if (algorithm == "Bayes") {
-		result <- BayesMDCEV(stan_data, bayes_options,
-										initial.parameters,
-										keep.samples = FALSE,
-										include.stanfit = TRUE)
-
-		# Get parameter estimates in matrix form
-		result$est_pars <- rstan::extract(result$stan_fit, permuted = TRUE, inc_warmup = FALSE) %>%
-				as.data.frame() %>%
-				dplyr::select(-tidyselect::starts_with("log_like"), -tidyselect::starts_with("sum_log_lik"),
-					   -tidyselect::starts_with("tau_unif"), -.data$lp__)
+		result <- BayesMDCEV(stan_data,
+							 bayes_options,
+							 initial.parameters,
+							 keep.samples = FALSE,
+							 include.stanfit = TRUE,
+				 			 ...)
 
 	} else if (algorithm == "MLE") {
-		result <- maxlikeMDCEV(stan_data, initial.parameters, mle_options)
+		result <- maxlikeMDCEV(stan_data,
+							   initial.parameters,
+							   mle_options,
+							   ...)
 
-		# Get parameter estimates in matrix form
-		result$est_pars <- tbl_df(result[["stan_fit"]][["theta_tilde"]]) %>%
-			dplyr::select(-tidyselect::starts_with("log_like"), -tidyselect::starts_with("sum_log_lik"))
+#		result[["stan_fit"]][["theta_tilde"]] <- NULL
 
-		result[["stan_fit"]][["theta_tilde"]] <- NULL
-
-		if(length(names(result$est_pars)) == 0)
-			stop("Hessian matrix is not positive definite")
+#		if(length(names(result$est_pars)) == 0)
+#			stop("Hessian matrix is not positive definite")
 
 	}
 	end.time <- proc.time()
@@ -188,8 +196,7 @@ FitMDCEV <- function(data,
 	result$stan_data <- stan_data
 	result$algorithm <- algorithm
 	result$random_parameters <- random_parameters
-	result$psi_formula <- psi_formula
-	result$lc_formula <- lc_formula
+	result$formula <- formula
 	result$n_classes <- n_classes
 	result$model <- model
 	result$algorithm <- algorithm
@@ -202,16 +209,12 @@ FitMDCEV <- function(data,
 
 	# Rename variables
 	if (random_parameters == "fixed"){
-		names(result$est_pars)[1:parms_info$n_vars$n_parms_total] <- parms_info$parm_names$all_names
 		result$aic <- -2 * result$log.likelihood + 2 * parms_info$n_vars$n_parms_total
 		result$bic <- -2 * result$log.likelihood + log(result$effective.sample.size) * parms_info$n_vars$n_parms_total
 	}
 
-	result$est_pars <- result$est_pars %>%
-		tibble::rowid_to_column("sim_id") %>%
-		tidyr::gather(parms, value, -sim_id)
-
-#	class(result) <- "mdcev"
+result <- structure(result,
+					class = "mdcev")
 
 return(result)
 }

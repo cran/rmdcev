@@ -1,4 +1,4 @@
-// saved as mdcev_hb_corr.stan
+// saved as mdcev_lc.stan
 functions {
 #include /common/mdcev_ll.stan
 }
@@ -19,54 +19,37 @@ data {
 
 transformed data {
 	int RP;
-//	int RP_psi
-	int n_gamma_rp;
-	int n_gamma_fixed;
-	int n_alpha_rp;
-	int n_alpha_fixed;
 	int RP_g;
 	int RP_a;
 #include /common/mdcev_tdata.stan
-
+	{
+	int n_gamma_rp = gamma_fixed == 0 ? Gamma : 0;
+	int n_alpha_rp = alpha_fixed == 0 ? A : 0;
+	RP = NPsi + n_gamma_rp + n_alpha_rp; // number of random parameters
+	RP_g = NPsi + 1; // location of first gamma
+	RP_a = NPsi + n_gamma_rp + 1; // location of first alpha
+	}
 //	n_psi_rp = sum(psi_ndx);
 //	n_psi_fixed = NPsi - sum(psi_ndx);
-
-	if (gamma_fixed == 0){
-		n_gamma_rp = Gamma;
-	} else if (gamma_fixed == 1){
-		n_gamma_rp = 0;
-	}
-	if (alpha_fixed == 0){
-		n_alpha_rp = A;
-	} else if (alpha_fixed == 1){
-		n_alpha_rp = 0;
-	}
- 	RP = NPsi + n_gamma_rp + n_alpha_rp; // number of random parameters
-	RP_g = NPsi + 1; // location of first gamma
-	RP_a = NPsi + n_gamma_rp + 1; // location of alpha
-// 	RP = NPsi + Gamma + A; // number of random parameters
-//	RP_g = NPsi + 1; // location of first gamma
-//	RP_a = NPsi + Gamma + 1; // location of alpha
 }
 
 parameters {
 //	vector[n_psi_fixed] psi;
 	vector<lower=0 >[gamma_fixed == 1 ? Gamma : 0] gamma;
 	vector<lower=0, upper=1>[alpha_fixed == 1 ? A : 0] alpha;
-	vector[RP] mu;                                // means for beta
+	vector[RP] mu;                                // means for random parameters
   	matrix[I, RP] z;                             // std normal draws
-	cholesky_factor_corr[corr == 1 ? RP : 0] L_Omega;                // cholesky factors
+	cholesky_factor_corr[corr == 1 ? RP : 0] L_Omega; // cholesky factors
   	vector<lower=0,upper=pi()/2>[RP] tau_unif;
 	vector<lower=0>[fixed_scale1 == 0 ? 1 : 0] scale;
 }
 
 transformed parameters {
 	vector[I] log_like;
-//	cholesky_factor_cov[RP] L;                       // cholesky factors
-  	vector<lower=0>[RP] tau;   	// diagonal of the part-worth covariance matrix
+  	vector<lower=0>[RP] tau;   	// diagonal of the covariance matrix
 
   	{
-	matrix[I, RP] beta;             // utility parameters (individual level)
+	matrix[I, RP] beta;             // individual level parameters
 	matrix[I, J] lpsi;
    	matrix[I, NPsi] psi_individual;
   	matrix[I, J+1] alpha_full;
@@ -79,7 +62,7 @@ transformed parameters {
 
 	// individual level parameters
 	if (corr == 1){
-		beta = rep_matrix(mu', I) + (z * diag_pre_multiply(tau, L_Omega));
+		beta = rep_matrix(mu', I) + z * diag_pre_multiply(tau, L_Omega);
 	} else if (corr == 0){
 		beta = rep_matrix(mu', I) + diag_post_multiply(z, tau);
 	}
@@ -139,20 +122,19 @@ model {
 }
 
 generated quantities{
-   matrix[RP, RP] Sigma;                            // cov matrix
+//   matrix[RP, RP] Sigma;                            // cov matrix
+ //  matrix[RP, RP] Omega;
    real<upper=0> sum_log_lik = 0;// log_lik for each sample
 
-	{
-	   matrix[RP, RP] L;
-	//	vector[RP] tau_trans = append_col(tau[1:NPsi], append_col(exp(tau[RP_g:(RP_g+Gamma)]),
-	//									exp(tau[RP_a:(RP_a+A)])/(1+exp(tau[RP_a:(RP_a+A)]))));
-		if (corr == 1){
-			L = diag_pre_multiply(tau, L_Omega);
-		} else if (corr == 0){
-			L = diag_matrix(tau);
-		}
-		Sigma = tcrossprod(L);
-	}
+//	{
+//	   matrix[RP, RP] L;
+//		if (corr == 1){
+//			Omega = multiply_lower_tri_self_transpose(L_Omega);  // correlation matrix
+//			Sigma = quad_form_diag(Omega, tau);               // var-covar matrix
+//		} else if (corr == 0){
+//			Sigma = diag_matrix(tau);
+//		}
+//	}
 
 	for(i in 1:I){
 		sum_log_lik = sum_log_lik + log_like[i];

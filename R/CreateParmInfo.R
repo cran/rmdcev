@@ -1,7 +1,7 @@
 #' @title CreateParmInfo
 #' @description Create parameter names and number of parameters
 #' @param stan_data data for model
-#' @inheritParams FitMDCEV
+#' @inheritParams mdcev
 #' @return A list of parameter names and numbers
 #' @keywords internal
 CreateParmInfo <- function(stan_data, algorithm, random_parameters){
@@ -9,8 +9,13 @@ CreateParmInfo <- function(stan_data, algorithm, random_parameters){
 J <- stan_data$J
 
 n_psi <- stan_data$NPsi
-psi_names <- paste0(rep('psi', n_psi), sep="_",
-					colnames(stan_data[["dat_psi"]]))
+psi_names <- colnames(stan_data[["dat_psi"]])
+
+# Remove alt from names of psi parms
+for (i in 1:length(psi_names))
+	psi_names[i] <- sub('alt', '', psi_names[i])
+
+psi_names <- paste0(rep('psi', n_psi), sep="_", psi_names)
 
 
 if (stan_data$model_num == 1){
@@ -106,7 +111,7 @@ return(parms_info)
 #' @title GenClassNames
 #' @description Create names for LC
 #' @param parms_names list of parameter names
-#' @inheritParams FitMDCEV
+#' @inheritParams mdcev
 #' @return A vector of LC names
 #' @export
 GenClassNames <- function(parms_names, n_classes){

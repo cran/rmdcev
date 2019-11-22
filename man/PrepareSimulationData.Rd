@@ -4,16 +4,18 @@
 \alias{PrepareSimulationData}
 \title{PrepareSimulationData}
 \usage{
-PrepareSimulationData(stan_est, policies, nsims = 30)
+PrepareSimulationData(object, policies, nsims = 30, class = "class1")
 }
 \arguments{
-\item{stan_est}{Stan fit model from FitMDCEV}
+\item{object}{an object of class `mdcev`}
 
 \item{policies}{list containing
 price_p with additive price increases, and
 dat_psi_p with new psi data}
 
 \item{nsims}{Number of simulation draws to use for parameter uncertainty}
+
+\item{class}{The class number for Latent Class models.}
 }
 \value{
 A list with individual-specific data (df_indiv) and common data (df_common)
@@ -25,13 +27,17 @@ Prepare Data for WTP simulation
 \examples{
 \donttest{
 data(data_rec, package = "rmdcev")
-mdcev_est <- FitMDCEV(psi_formula = ~ 1,
-data = subset(data_rec, id < 500),
+
+data_rec <- mdcev.data(data_rec, subset = id < 500,
+                alt.var = "alt", choice = "quant")
+
+mdcev_est <- mdcev( ~ 1,
+data = data_rec,
 model = "hybrid0",
 algorithm = "MLE")
 
 policies <- CreateBlankPolicies(npols = 2,
-ngoods = mdcev_est[["stan_data"]][["J"]],
+nalts = mdcev_est[["stan_data"]][["J"]],
 dat_psi = mdcev_est[["stan_data"]][["dat_psi"]],
 price_change_only = TRUE)
 

@@ -4,8 +4,14 @@
 \alias{BayesMDCEV}
 \title{BayesMDCEV}
 \usage{
-BayesMDCEV(stan_data, bayes_options, initial.parameters,
-  keep.samples = FALSE, include.stanfit = TRUE)
+BayesMDCEV(
+  stan_data,
+  bayes_options,
+  initial.parameters,
+  keep.samples = FALSE,
+  include.stanfit = TRUE,
+  ...
+)
 }
 \arguments{
 \item{stan_data}{data for model}
@@ -16,14 +22,17 @@ BayesMDCEV(stan_data, bayes_options, initial.parameters,
 Initial parameter values should be included in a named list. For the "hybrid" specification,
 initial parameters can be specified as:
 init = list(psi = array(0, dim = c(1, num_psi)),
-            gamma = array(1, dim = c(1, num_goods)),
+            gamma = array(1, dim = c(1, num_alt)),
             alpha = array(0.5, dim = c(1, 0)),
             scale = array(1, dim = c(1)))
-where num_psi is number of psi parameters and num_goods is number of non-numeraire goods}
+where num_psi is number of psi parameters and num_alt is number of non-numeraire alternatives}
 
 \item{keep.samples}{default is FALSE,}
 
 \item{include.stanfit}{default isTRUE,}
+
+\item{...}{Additional parameters to pass on to \code{rstan::stan}
+and \code{rstan::sampling}.}
 }
 \description{
 Fit a MDCEV model using Bayesian estimation and Stan
