@@ -19,6 +19,7 @@ mdcev.sim(
   tol = 1e-20,
   max_loop = 999,
   suppressTime = FALSE,
+  stan_seed = 3,
   ...
 )
 
@@ -55,15 +56,17 @@ Conditional error draws (=1) or unconditional error draws.}
 \item{draw_mlhs}{Generate draws using Modified Latin Hypercube Sampling
 algorithm (=1) or uniform (=0)}
 
-\item{algo_gen}{Type of algorhitm for simulation. algo_gen = 0 for Hybrid Approach
-(i.e. constant alphas, only model 3/4) alog_gen = 1 for General approach
+\item{algo_gen}{Type of algorithm for simulation. algo_gen = 0 for Hybrid Approach
+(i.e. constant alphas, only hybrid models) algo_gen = 1 for General approach
 (i.e. heterogeneous alpha's, all models)}
 
 \item{tol}{Tolerance level for simulations if using general approach}
 
 \item{max_loop}{maximum number of loops for simulations if using general approach}
 
-\item{suppressTime}{Supress simulation time calculation}
+\item{suppressTime}{Suppress simulation time calculation}
+
+\item{stan_seed}{Seed for pseudo-random number generator get_rng see help(get_rng, package = "rstan")}
 
 \item{...}{Additional parameters to pass to mdcev.sim}
 
@@ -88,23 +91,23 @@ Simulate welfare or demand for MDCEV model
 \donttest{
 data(data_rec, package = "rmdcev")
 
-data_rec <- mdcev.data(data_rec, subset = id < 500,
+data_rec <- mdcev.data(data_rec, subset = id <= 500, id.var = "id",
                 alt.var = "alt", choice = "quant")
 
-mdcev_est <- mdcev( ~ 1, data = data_rec,
-               model = "hybrid0", algorithm = "MLE")
+mdcev_est <- mdcev( ~ 0, data = data_rec,
+               model = "hybrid0", algorithm = "MLE",
+               std_errors = "mvn")
 
 policies <- CreateBlankPolicies(npols = 2,
-nalts = mdcev_est[["stan_data"]][["J"]],
-dat_psi = mdcev_est[["stan_data"]][["dat_psi"]],
-price_change_only = TRUE)
+             mdcev_est,
+             price_change_only = TRUE)
 
 df_sim <- PrepareSimulationData(mdcev_est, policies)
 
 wtp <- mdcev.sim(df_sim$df_indiv,
-df_common = df_sim$df_common,
-sim_options = df_sim$sim_options,
-cond_err = 1, nerrs = 5, sim_type = "welfare")
+                 df_common = df_sim$df_common,
+                 sim_options = df_sim$sim_options,
+                 cond_err = 1, nerrs = 5, sim_type = "welfare")
 }
 }
 \seealso{

@@ -4,16 +4,18 @@
 \alias{CreateParmInfo}
 \title{CreateParmInfo}
 \usage{
-CreateParmInfo(stan_data, algorithm, random_parameters)
+CreateParmInfo(stan_data, alt_names, algorithm, random_parameters)
 }
 \arguments{
 \item{stan_data}{data for model}
 
-\item{algorithm}{Either "Bayes" for Bayes or "MLE"
-for maximum liklihood estimation.}
+\item{alt_names}{name of alternatives.}
+
+\item{algorithm}{Either "Bayes" for Bayes or "MLE" for maximum likelihood estimation.}
 
 \item{random_parameters}{The form of the covariance matrix for
-Bayes. Can be 'fixed', 'uncorr, 'corr'.}
+Bayes. Can be 'fixed' for no random parameters, 'uncorr' for uncorrelated random parameters, or
+'corr' for correlated random parameters.}
 }
 \value{
 A list of parameter names and numbers

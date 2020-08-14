@@ -9,11 +9,12 @@
 #' Conditional error draws (=1) or unconditional error draws.
 #' @param draw_mlhs Generate draws using Modified Latin Hypercube Sampling
 #' algorithm (=1) or uniform (=0)
-#' @param algo_gen Type of algorhitm for simulation. algo_gen = 0 for Hybrid Approach
-#' (i.e. constant alphas, only model 3/4) alog_gen = 1 for General approach
+#' @param algo_gen Type of algorithm for simulation. algo_gen = 0 for Hybrid Approach
+#' (i.e. constant alphas, only hybrid models) algo_gen = 1 for General approach
 #' (i.e. heterogeneous alpha's, all models)
 #' @param sim_type Either "welfare" or "demand"
-#' @param suppressTime Supress simulation time calculation
+#' @param stan_seed Seed for pseudo-random number generator get_rng see help(get_rng, package = "rstan")
+#' @param suppressTime Suppress simulation time calculation
 #' @param ... Additional parameters to pass to mdcev.sim
 #' @return a object of class mdcev.sim which contains a list for each
 #' individual holding either 1) nsims x npols matrix of welfare changes if
@@ -25,23 +26,23 @@
 #' \donttest{
 #' data(data_rec, package = "rmdcev")
 #'
-#' data_rec <- mdcev.data(data_rec, subset = id < 500,
+#' data_rec <- mdcev.data(data_rec, subset = id <= 500, id.var = "id",
 #'                 alt.var = "alt", choice = "quant")
 #'
-#' mdcev_est <- mdcev( ~ 1, data = data_rec,
-#'                model = "hybrid0", algorithm = "MLE")
+#' mdcev_est <- mdcev( ~ 0, data = data_rec,
+#'                model = "hybrid0", algorithm = "MLE",
+#'                std_errors = "mvn")
 #'
 #' policies <- CreateBlankPolicies(npols = 2,
-#' nalts = mdcev_est[["stan_data"]][["J"]],
-#' dat_psi = mdcev_est[["stan_data"]][["dat_psi"]],
-#' price_change_only = TRUE)
+#'              mdcev_est,
+#'              price_change_only = TRUE)
 #'
 #' df_sim <- PrepareSimulationData(mdcev_est, policies)
 #'
 #' wtp <- mdcev.sim(df_sim$df_indiv,
-#' df_common = df_sim$df_common,
-#' sim_options = df_sim$sim_options,
-#' cond_err = 1, nerrs = 5, sim_type = "welfare")
+#'                  df_common = df_sim$df_common,
+#'                  sim_options = df_sim$sim_options,
+#'                  cond_err = 1, nerrs = 5, sim_type = "welfare")
 #'}
 mdcev.sim <- function(df_indiv, df_common, sim_options,
 					  sim_type = c("welfare", "demand"),
@@ -52,6 +53,7 @@ mdcev.sim <- function(df_indiv, df_common, sim_options,
 					  tol = 1e-20,
 					  max_loop = 999,
 					  suppressTime = FALSE,
+					  stan_seed = 3,
 					  ...){
 
 	start.time <- proc.time()
@@ -67,15 +69,22 @@ mdcev.sim <- function(df_indiv, df_common, sim_options,
 	} else if (is.null(algo_gen)) {
 		if (model_num == 3 || model_num == 4)
 			algo_gen <- 0
-		else if (model_num == 1 || model_num == 2)
+		else if (model_num == 1 || model_num == 2 || model_num == 5)
 			algo_gen <- 1
+#		else if (model_num == 5)
+#			algo_gen <- 2
 	}
 
+
 	if (algo_gen == 1) {
-		message("Using general approach to simulation")
+		message("Using general approach in simulation...")
 	} else if (algo_gen == 0){
-		message("Using hybrid approach to simulation")
+		message("Using hybrid approach in simulation...")
 	}
+
+#	if (model_num == 5)
+#		message("Using numerical bisection approach in simulation...")
+
 	# Organize options in list
 	sim_options[["nerrs"]] <- nerrs
 	sim_options[["cond_error"]] <- cond_error
@@ -83,12 +92,9 @@ mdcev.sim <- function(df_indiv, df_common, sim_options,
 	sim_options[["algo_gen"]] <- algo_gen
 	sim_options[["tol"]] <- tol
 	sim_options[["max_loop"]] <- max_loop
+	sim_options[["sim_type"]] <- sim_type
 
-	if(sim_type == "welfare"){
-		out <- StanWelfare(df_indiv, df_common, sim_options)
-	} else if(sim_type == "demand"){
-		out <- StanDemand(df_indiv, df_common, sim_options)
-	}
+	out <- StanSimulate(df_indiv, df_common, sim_options, stan_seed)
 
 	if(suppressTime == FALSE){
 		time <- proc.time() - start.time

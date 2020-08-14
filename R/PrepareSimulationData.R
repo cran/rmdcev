@@ -13,89 +13,83 @@
 #' \donttest{
 #' data(data_rec, package = "rmdcev")
 #'
-#' data_rec <- mdcev.data(data_rec, subset = id < 500,
+#' data_rec <- mdcev.data(data_rec, subset = id <= 500, id.var = "id",
 #'                 alt.var = "alt", choice = "quant")
 #'
-#' mdcev_est <- mdcev( ~ 1,
-#' data = data_rec,
-#' model = "hybrid0",
-#' algorithm = "MLE")
+#' mdcev_est <- mdcev( ~ 0, data = data_rec,
+#'                model = "hybrid0", algorithm = "MLE",
+#'                std_errors = "mvn")
 #'
-#' policies <- CreateBlankPolicies(npols = 2,
-#' nalts = mdcev_est[["stan_data"]][["J"]],
-#' dat_psi = mdcev_est[["stan_data"]][["dat_psi"]],
-#' price_change_only = TRUE)
+#' policies <- CreateBlankPolicies(npols = 2, mdcev_est,
+#'              price_change_only = TRUE)
 #'
 #' df_sim <- PrepareSimulationData(mdcev_est, policies)
+#'
 #'}
 PrepareSimulationData <- function(object,
 								  policies,
 								  nsims = 30,
 								  class = "class1"){
 
-
+	# Get parameter estimates in matrix form
 	if (object$algorithm == "Bayes") {
-
-		# Get parameter estimates in matrix form
-		est_pars <- rstan::extract(object$stan_fit, permuted = TRUE, inc_warmup = FALSE) %>%
-			as.data.frame() %>%
-			dplyr::select(-tidyselect::starts_with("log_like"), -tidyselect::starts_with("sum_log_lik"),
-						  -tidyselect::starts_with("tau_unif"), -.data$lp__)
-
+		est_pars <- as.data.frame(rstan::extract(object$stan_fit, permuted = TRUE, inc_warmup = FALSE))
 	} else if (object$algorithm == "MLE") {
-
-		# Get parameter estimates in matrix form
-		est_pars <- tbl_df(object[["stan_fit"]][["theta_tilde"]]) %>%
-			dplyr::select(-tidyselect::starts_with("log_like"), -tidyselect::starts_with("sum_log_lik"))
-
+		if(object$std_errors == "mvn") {
+			est_pars <- as_tibble(object[["stan_fit"]][["theta_tilde"]])
+			if (nsims > object$n_draws){
+				nsims <- object$n_draws
+				warning("Number of simulations > Number of mvn draws from mdcev object. nsims has been set to: ", nsims)
+			}
+		} else if (object$std_errors == "deltamethod"){
+			est_pars <- object[["stan_fit"]][["par"]]
+			est_pars <- est_pars[!grepl(c("^log_like|^sum_log_lik|^tau_unif|^Sigma|^lp__|^theta"),names(est_pars))]
+			est_pars <- as_tibble(t(unlist(est_pars)))
+			if (nsims > 1){
+				nsims <- 1
+				warning("Number of simulations > 1. Use mvn draws to incorporate parameter uncertainty nsims has been set to: ", nsims)
+			}
+		}
 	}
+
+	# drop extra variables
+	est_pars <- est_pars[,!grepl(c("^log_like|^sum_log_lik|^tau_unif|^Sigma|^lp__"), colnames(est_pars))]
 
 	# Rename variables
 	if (object$random_parameters == "fixed"){
 		names(est_pars)[1:object$parms_info$n_vars$n_parms_total] <- object$parms_info$parm_names$all_names
 	}
 
-	est_pars <- est_pars %>%
-		tibble::rowid_to_column("sim_id") %>%
-		tidyr::gather(parms, value, -sim_id)
-
-#object <- mdcev_corr
-#	if (object$random_parameters == "corr")
-#		stop("Demand and welfare simulation not set up for correlated RP-MDCEV models yet.", "\n")
-
-	model_num <- object$stan_data$model_num
-
 	# Checks on simulation options
-	if (object$algorithm == "MLE" && nsims > object$n_draws){
-		nsims <- object$n_draws
-		warning("Number of simulations > Number of mvn draws from mdcev object. nsims has been set to: ", nsims)
-	} else if (object$algorithm == "Bayes" && nsims > max(est_pars$sim_id)) {
-		nsims <- max(est_pars$sim_id)
+	if (object$algorithm == "Bayes" && nsims > nrow(est_pars)) {
+		nsims <- nrow(est_pars)
 		warning("Number of simulations > Number of posterior draws from mdcev object. nsims has been set to: ", nsims)
 	}
 
 	# Sample from parameter estimate draws
-	est_sim <- est_pars %>%
-		dplyr::distinct(sim_id) %>%
-		dplyr::sample_n(., nsims) %>%
-		dplyr::left_join(est_pars, by = "sim_id")
+	est_pars <- est_pars[sample(nrow(est_pars), nsims), ]
 
+	est_sim <- est_pars  %>%
+		tibble::rowid_to_column("sim_id") %>%
+		tidyr::pivot_longer(-sim_id, names_to = "parms", values_to = "value")
+
+#object <- mdcev_corr
+#	if (object$random_parameters == "corr")
+#		stop("Demand and welfare simulation not set up for correlated RP-MDCEV models yet.", "\n")
 	if(object$n_classes > 1){
 		est_sim <- est_sim %>%
-			filter(stringr::str_detect(.data$parms,
-									   paste(class)))
+			filter(stringr::str_detect(.data$parms, paste(class)))
 	}
 
-	sim_welfare <- ProcessSimulationData(est_sim, object, policies, nsims)
-	df_common <- sim_welfare
+	sim_data <- ProcessSimulationData(est_sim, object, policies, nsims)
+	df_common <- sim_data
 	df_common$df_indiv <- NULL
 
-	df_indiv <- sim_welfare$df_indiv
+	df_indiv <- sim_data$df_indiv
 
 	sim_options <- list(n_classes = object$n_classes,
-					model_num = model_num,
+					model_num = object$stan_data$model_num,
 					price_change_only = policies$price_change_only)
-
 
 	output <- list(df_indiv = df_indiv,
 				   df_common = df_common,
@@ -111,52 +105,70 @@ return(output)
 #' @keywords internal
 ProcessSimulationData <- function(est_sim, object, policies, nsims){
 
-#	object <- mdcev_corr2
-
 	J <- object$stan_data$J
 	I <- object$stan_data$I
+	NPsi_ij = object$stan_data$NPsi_ij
 	model_num <- object$stan_data$model_num
 	random_parameters <- object$random_parameters
-	gamma_fixed <- object$stan_data$gamma_fixed
-	alpha_fixed <- object$stan_data$alpha_fixed
+	gamma_nonrandom <- object$stan_data$gamma_nonrandom
+	alpha_nonrandom <- object$stan_data$alpha_nonrandom
 	npols <- length(policies$price_p)
-
+	psi_ascs = object$stan_data$psi_ascs
 
 	# scales (always fixed parameter)
 	if (object$stan_data$fixed_scale1 == 0){
-		scale_sim <- t(GrabParms(est_sim, "scale"))
+#		scale_sim = est_sim$scale
+		scale_sims <- t(GrabParms(est_sim, "scale"))
 	} else if (object$stan_data$fixed_scale1 == 1){
-		scale_sim = matrix(1, nsims, 1)
+		scale_sims = matrix(1, nsims, 1)
 	}
-
 
 	# Get fixed parameters for gammas
 	if (model_num == 2){
-		gamma_sim_fixed <- matrix(1, nsims, J)
-	} else if (model_num != 2 & gamma_fixed == 1){
-		gamma_sim_fixed <- t(GrabParms(est_sim, "gamma"))
-	} else if (gamma_fixed == 0){
-		gamma_sim_fixed <- NULL
-	}
-
+		gamma_sim_nonrandom <- matrix(1, nsims, J)
+	} else if (model_num != 2 & gamma_nonrandom == 1){
+#		gamma_sim_nonrandom = est_sim$gamma
+		gamma_sim_nonrandom <- GrabParms(est_sim, "gamma")
+		if (object$stan_data$gamma_ascs == 0){
+			gamma_sim_nonrandom <- matrix(rep(gamma_sim_nonrandom, each=J), ncol=J, byrow=TRUE)
+		}
+	} else if (gamma_nonrandom == 0)
+		gamma_sim_nonrandom <- NULL
 
 	# alphas
 	if (model_num == 4){
-		alpha_sim_fixed <- matrix(1e-3, nsims, J+1)
-	} else if (model_num != 4 & alpha_fixed == 1){
-		alpha_sim_fixed <- t(GrabParms(est_sim, "alpha"))
+		alpha_sim_nonrandom <- matrix(1e-3, nsims, J+1)
+	} else if (model_num != 4 & alpha_nonrandom == 1){
+#		alpha_sim_nonrandom = est_sim$alpha
+		alpha_sim_nonrandom <- GrabParms(est_sim, "alpha")
 
-		if (model_num == 1) {
-			alpha_sim_fixed <- cbind(alpha_sim_fixed, matrix(0, nsims, J) )
+		if (model_num == 1 || model_num == 5) {
+			alpha_sim_nonrandom <- cbind(alpha_sim_nonrandom, matrix(0, nsims, J) )
 		} else if (model_num == 3){
-			alpha_sim_fixed <- matrix(rep(alpha_sim_fixed, each=J+1), ncol=J+1, byrow=TRUE)
+			alpha_sim_nonrandom <- matrix(rep(alpha_sim_nonrandom, each=J+1), ncol=J+1, byrow=TRUE)
 		}
-	} else if (alpha_fixed == 0){
-		alpha_sim_fixed <- NULL
+	} else if (alpha_nonrandom == 0){
+		alpha_sim_nonrandom <- NULL
 	}
 
-	# Get individual parameters
-if(random_parameters != "fixed"){
+	if (!is.null(alpha_sim_nonrandom)){
+		alpha_sim_rand <- NULL
+	}
+
+	if (!is.null(gamma_sim_nonrandom)){
+		gamma_sim_rand <- NULL
+	}
+# Get individual parameters
+# ensure psi variables in same form as psi_sim_rand
+if (random_parameters == "fixed"){
+	psi_sim_temp <- GrabParms(est_sim, "psi") # change back to est_sim
+	psi_sim_temp = replicate(I, psi_sim_temp, simplify=FALSE)
+
+	if (object[["parms_info"]][["n_vars"]][["n_phi"]] > 0){
+		phi_sim_temp <- GrabParms(est_sim, "phi") # change back to est_sim
+		phi_sim_temp = replicate(I, phi_sim_temp, simplify=FALSE)
+	}
+} else if (random_parameters != "fixed"){
 
 	est_sim_mu_tau <- est_sim %>%
 		dplyr::filter(grepl(c("mu|tau"), parms)) %>%
@@ -182,36 +194,27 @@ if(random_parameters != "fixed"){
 			dplyr::arrange(sim_id) %>%
 			dplyr::distinct(sim_id)
 
-		L <- purrr::map2(est_sim_tau, est_sim_lomega, function(x, y){
-			l_omega <- matrix(y$value, nrow = num_rand, byrow=F)
-			L <- as.vector(x$tau %*% l_omega)
-			return(L)
-		})
+		L <- mapply(function(x, y){
+						l_omega <- matrix(y$value, nrow = num_rand, byrow=F)
+						L <- as.vector(x$tau %*% l_omega)
+						return(L)
+					}, est_sim_tau, est_sim_lomega)
 
-	L <- matrix(unlist(L), nrow = nrow(sim_id), byrow = T )
-	colnames(L) <- c(paste0(rep("parm_id", num_rand), 1:num_rand))
+		L <- matrix(unlist(L), nrow = nrow(sim_id), byrow = T )
+		colnames(L) <- c(paste0(rep("parm_id", num_rand), 1:num_rand))
 
-	est_sim_tau <- bind_cols(sim_id, tbl_df(L)) %>%
-		tidyr::gather(parm_id, tau, -sim_id) %>%
-		dplyr::mutate(parm_id = as.numeric(gsub("[^0-9]", "", .data$parm_id))) %>%
-		dplyr::arrange(sim_id)
+		est_sim_tau <- bind_cols(sim_id, as_tibble(L)) %>%
+			tidyr::gather(parm_id, tau, -sim_id) %>%
+			dplyr::mutate(parm_id = as.numeric(gsub("[^0-9]", "", .data$parm_id))) %>%
+			dplyr::arrange(sim_id)
 
-	est_sim_mu_tau <- est_sim_mu_tau %>%
-		dplyr::select(sim_id, .data$parm_id, .data$mu) %>%
-		dplyr::left_join(est_sim_tau, by = c("sim_id", "parm_id"))
-
-	} else if(random_parameters == "uncorr"){
-
-	est_sim_mu_tau <- est_sim %>%
-		dplyr::filter(grepl(c("mu|tau"), parms)) %>%
-		tidyr::separate(parms, into = c("parms", "parm_id"), sep = "\\.") %>%
-		dplyr::mutate(parm_id = as.numeric(.data$parm_id)) %>%
-		tidyr::spread(parms, value)  %>%
-		dplyr::arrange(sim_id)
+		est_sim_mu_tau <- est_sim_mu_tau %>%
+			dplyr::select(sim_id, .data$parm_id, .data$mu) %>%
+			dplyr::left_join(est_sim_tau, by = c("sim_id", "parm_id"))
 	}
 
 	est_sim <- est_sim %>%
-		dplyr::filter(stringr::str_detect(parms, "^z")) %>%
+		dplyr::filter(grepl(c("^z|sim_id"), parms)) %>%
 		tidyr::separate(parms, into = c("parms", "id", "parm_id"), sep = "\\.") %>%
 		tidyr::spread(parms, value) %>%
 		dplyr::mutate(parm_id = as.numeric(.data$parm_id),
@@ -225,118 +228,152 @@ if(random_parameters != "fixed"){
 		dplyr::select(-.data$tau, -.data$mu, -.data$z)
 
 	# Transform gamma and alpha estimates
-	if(object[["stan_data"]][["gamma_fixed"]]==0){
+	if(gamma_nonrandom == 0){
 		est_sim <- est_sim %>%
 			dplyr::mutate(beta = ifelse(grepl(c("gamma"), parms), exp(beta), beta))
 	}
-	if(object[["stan_data"]][["alpha_fixed"]]==0){
+	if(alpha_nonrandom == 0){
 		est_sim <- est_sim %>%
 			dplyr::mutate(beta = ifelse(grepl(c("alpha"), parms), 1 / (1 + exp(-beta)), beta))
 	}
 
-	if (gamma_fixed == 0){
-		gamma_sim_rand <- est_sim %>%
-			dplyr::filter(grepl(c("gamma"), parms)) %>%
-			dplyr::select(id, sim_id, .data$parm_id, beta) %>%
-			tidyr::spread(.data$parm_id, beta) %>%
-			dplyr::select(-sim_id) %>%
-			dplyr::group_split(id, keep = F)
-
-		gamma_sim_rand <- purrr::map(gamma_sim_rand, ~as.matrix(.))
-
-		gamma_sim_rand <- list(gamma_sim_rand)
-		names(gamma_sim_rand) <- "gamma_sim"
+	if (gamma_nonrandom == 0){
+		gamma_sim_rand <- GrabIndividualParms(est_sim, "gamma")
+		if (object$stan_data$gamma_ascs == 0){
+			gamma_sim_rand <- lapply(gamma_sim_rand, function(x){
+				matrix(rep(x, each=J), ncol=J, byrow=TRUE)})
+		}
+		gamma_sim_rand <- list(lapply(gamma_sim_rand, as.matrix))
+		names(gamma_sim_rand) <- "gamma_sims"
 	}
 
-	if (alpha_fixed == 0){
-		alpha_sim_rand <- est_sim %>%
-			dplyr::filter(grepl(c("alpha"), parms)) %>%
-			dplyr::select(id, sim_id, .data$parm_id, beta) %>%
-			tidyr::spread(.data$parm_id, beta) %>%
-			dplyr::select(-sim_id) %>%
-			dplyr::group_split(id, keep = F)
-
-		alpha_sim_rand <- purrr::map(alpha_sim_rand, ~as.matrix(.))
-
-		alpha_sim_rand <- list(alpha_sim_rand)
-		names(alpha_sim_rand) <- "alpha_sim"
+	if (alpha_nonrandom == 0){
+		alpha_sim_rand <- GrabIndividualParms(est_sim, "alpha")
+		if (model_num == 1 || model_num == 5) {
+			alpha_sim_rand <- lapply(alpha_sim_rand, function(x){
+				cbind(x, matrix(0, nsims, J) )})
+		} else if (model_num == 3){
+			alpha_sim_rand <- lapply(alpha_sim_rand, function(x){
+				matrix(rep(x,each=J+1), ncol=J+1, byrow=TRUE)})
+		}
+		alpha_sim_rand <- list(lapply(alpha_sim_rand, as.matrix))
+		names(alpha_sim_rand) <- "alpha_sims"
 	}
 
-	psi_sim_rand <- est_sim %>%
-		dplyr::filter(grepl(c("psi"), parms)) %>%
-		dplyr::select(id, sim_id, .data$parm_id, beta) %>%
-		tidyr::spread(.data$parm_id, beta) %>%
-		dplyr::select(-sim_id) %>%
-		dplyr::group_split(id, keep = F)
-}
+	psi_sim_temp <- GrabIndividualParms(est_sim, "psi")
+	psi_sim_temp <- lapply(psi_sim_temp, as.matrix)
 
-if (random_parameters == "fixed"){
-	# psi
-	psi_temp <- GrabParms(est_sim, "psi") # change back to est_sim
-
-
-	psi_temp <- CreateListsCol(psi_temp)
-	psi_sim <- purrr::map(psi_temp, MultiplyMatrix, mat_temp = object$stan_data$dat_psi, n_rows = I)
-
-	psi_sim <- DoCbind(psi_sim)
-	psi_sim <- CreateListsRow(psi_sim)
-	psi_sim <- purrr::map(psi_sim, function(x){matrix(x , nrow = nsims, byrow = TRUE)})
-
-	psi_sim <- list(psi_sim)
-	names(psi_sim) <- "psi_sim"
-
-	if (policies$price_change_only == FALSE) {
-	# psi_p
-	psi_p_sim <- purrr::map(psi_temp, function(psi){ purrr::map(policies[["dat_psi_p"]], MultiplyMatrix, x = psi, n_rows = I)})
-	psi_p_sim <- purrr::map(psi_p_sim, DoCbind)
-	psi_p_sim <- DoCbind(psi_p_sim)
-	psi_p_sim <- CreateListsRow(psi_p_sim)
-	psi_p_sim <- purrr::map(psi_p_sim, function(x){aperm(array(x, dim = c(J, npols, nsims)), perm=c(2,1,3))})
-
-	# Ensure psi_p_sim is a list of J lists each with nsims lists of npol X nalt matrices
-	psi_p_sim <- purrr::map(psi_p_sim, function(x){lapply(seq_len(nsims), function(i) x[,,i])})
-
-	psi_p_sim <- list(psi_p_sim)
-	names(psi_p_sim) <- "psi_p_sim"
-
-	} else if (policies$price_change_only == TRUE){
-		psi_p_sim <- NULL
+	# Get parameters for phis
+	if (model_num == 5){
+		phi_sim_temp <- list(GrabIndividualParms(est_sim, "phi"))
+	} else if (model_num != 5){
+		phi_sim_temp <- list(array(0, dim = c(0,0)))
 	}
-
-} else if (random_parameters != "fixed"){
-
-	dat_id <- tibble(id = rep(1:object$n_individuals, each = object$stan_data$J))
-
-	dat_psi <- bind_cols(dat_id, tbl_df(object$stan_data$dat_psi)) %>%
-		group_split(id, keep = F)
-
-	psi_sim <- purrr::map2(psi_sim_rand, dat_psi, function(x, y){
-
-		psi_sim <- CreateListsRow(x)
-		dat_psi_1 <- as.matrix(y)
-
-		out <- purrr::map(psi_sim, function(xx){
-			psi <- dat_psi_1 %*% t(as.matrix(xx))} )
-
-		out <- matrix(unlist(out), byrow=TRUE, nrow=length(out) )
-		return(out)
-	})
-
-psi_sim <- list(psi_sim)
-names(psi_sim) <- "psi_sim"
-
-# Can't change psi_p for random parameters yet
-psi_p_sim <- NULL
 }
 
-if (!is.null(alpha_sim_fixed)){
-	alpha_sim_rand <- NULL
+# Create Psi variables
+if (object[["parms_info"]][["n_vars"]][["n_psi"]] > 0){
+	dat_vars <- tibble(id = rep(1:I, each = J))
+
+	if (NPsi_ij > 0)
+		dat_vars <- bind_cols(dat_vars, as_tibble(object$stan_data$dat_psi))
+
+	dat_vars <- dat_vars %>%
+		group_split(id, .keep = F)
+
+		psi_sims <- mapply(CreatePsi, dat_vars, psi_sim_temp,
+					  J = J, NPsi_ij=NPsi_ij, psi_ascs=psi_ascs, npols = npols,
+					  SIMPLIFY = FALSE)
+} else {
+	psi_sims = replicate(I, matrix(0, nsims, J), simplify=FALSE)
 }
 
-if (!is.null(gamma_sim_fixed)){
-	gamma_sim_rand <- NULL
+psi_sims <- list(psi_sims)
+names(psi_sims) <- "psi_sims"
+
+
+# phi
+# Get parameters for phis
+if (object[["parms_info"]][["n_vars"]][["n_phi"]] > 0){
+
+	dat_id <- tibble(id = rep(1:I, each = J))
+	dat_vars <- bind_cols(dat_id, as_tibble(object$stan_data$dat_phi))
+
+	dat_vars <- dat_vars %>%
+		group_split(id, .keep = F)
+
+	phi_sims <- mapply(function(x, y){
+		phi_temp <- exp(as.matrix(x) %*% t(as.matrix(y))) # exponentiate to get back to proper transformation
+		phi_temp <- t(phi_temp)
+	}, dat_vars, phi_sim_temp, SIMPLIFY = FALSE)
+
+	phi_sims <- list(phi_sims)
+	names(phi_sims) <- "phi_sims"
+
+} else if (object[["parms_info"]][["n_vars"]][["n_phi"]] == 0){
+	phi_sims <- array(1, dim = c(nsims,J))
+	phi_sims = replicate(I, phi_sims, simplify=FALSE)
+	phi_sims <- list(phi_sims)
+	names(phi_sims) <- "phi_sims"
 }
 
+# Set up psi_p and phi_p
+
+phi_p_sims <- replicate(I, matrix(0, 0, 0), simplify=FALSE)
+psi_p_sims <- replicate(I, matrix(0, 0, 0), simplify=FALSE)
+
+if (policies$price_change_only == FALSE) {
+
+	if (model_num < 5){
+		dat_vars <- tibble(id = rep(1:I, each = J))
+
+		if (NPsi_ij > 0){
+			dat_vars_temp <- mapply(cbind, policies[["dat_psi_p"]], "policy"=1:npols, SIMPLIFY=F)
+			dat_vars_temp <- lapply(dat_vars_temp, function(x){
+				bind_cols(dat_vars, as_tibble(x))})
+
+		dat_vars <- do.call(rbind, dat_vars_temp)
+		}
+
+		dat_vars <- dat_vars %>%
+			group_split(id, .keep = F)
+
+		psi_p_sims <- mapply(CreatePsi, dat_vars, psi_sim_temp,
+							J = J, NPsi_ij=NPsi_ij, psi_ascs=psi_ascs,npols = npols,
+							SIMPLIFY = FALSE)
+
+
+
+	} else if (model_num == 5){
+		dat_vars <- tibble(id = rep(1:I, each = J))
+
+			dat_vars_temp <- mapply(cbind, policies[["dat_phi_p"]], "policy"=1:npols, SIMPLIFY=F)
+			dat_vars_temp <- lapply(dat_vars_temp, function(x){
+				bind_cols(dat_vars, as_tibble(x))})
+
+			dat_vars <- do.call(rbind, dat_vars_temp)
+
+
+		dat_vars <- dat_vars %>%
+			group_split(id, .keep = F)
+
+		phi_p_sims <- mapply(function(x, y){
+			x_i = x %>%
+				group_split(policy, .keep = F)
+			phi_p_temp <- lapply(x_i, function(xx){
+			phi_p_temp <- exp(as.matrix(xx) %*% t(as.matrix(y))) # exponentiate to get back to proper transformation
+			phi_p_temp <- t(phi_p_temp)
+			return(phi_p_temp)
+			})
+		}, dat_vars, phi_sim_temp, SIMPLIFY = FALSE)
+
+
+	}
+}
+psi_p_sims <- list(psi_p_sims)
+names(psi_p_sims) <- "psi_p_sims"
+phi_p_sims <- list(phi_p_sims)
+names(phi_p_sims) <- "phi_p_sims"
 
 # Set baseline individual data into lists
 income <- list(as.list(object$stan_data$income))
@@ -350,13 +387,13 @@ price <- list(CreateListsRow(price))
 names(price) <- "price"
 
 # Pull individual level data into one list
-df_indiv <- c(income, quant_j, price, psi_sim, psi_p_sim,
+df_indiv <- c(income, quant_j, price, psi_sims, phi_sims, psi_p_sims, phi_p_sims,
 			  gamma_sim_rand, alpha_sim_rand)
 
 out <- list(df_indiv = df_indiv,
 			price_p_list = policies$price_p,
-			gamma_sim_fixed = gamma_sim_fixed,
-			alpha_sim_fixed = alpha_sim_fixed,
-			scale_sim = scale_sim)
+			gamma_sim_nonrandom = gamma_sim_nonrandom,
+			alpha_sim_nonrandom = alpha_sim_nonrandom,
+			scale_sims = scale_sims)
 return(out)
 }

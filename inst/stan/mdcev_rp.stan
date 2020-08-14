@@ -13,8 +13,8 @@ data {
   int end[I]; // the ending observation for each task
   real<lower=1> lkj_shape; // shape parameter for LKJ prior
 //  vector[NPsi] psi_ndx;
-  int<lower=0, upper=1>  gamma_fixed;
-  int<lower=0, upper=1>  alpha_fixed;
+  int<lower=0, upper=1>  gamma_nonrandom;
+  int<lower=0, upper=1>  alpha_nonrandom;
 }
 
 transformed data {
@@ -23,9 +23,9 @@ transformed data {
 	int RP_a;
 #include /common/mdcev_tdata.stan
 	{
-	int n_gamma_rp = gamma_fixed == 0 ? Gamma : 0;
-	int n_alpha_rp = alpha_fixed == 0 ? A : 0;
-	RP = NPsi + n_gamma_rp + n_alpha_rp; // number of random parameters
+	int n_gamma_rp = gamma_nonrandom == 0 ? Gamma : 0;
+	int n_alpha_rp = alpha_nonrandom == 0 ? A : 0;
+	RP = NPsi + n_gamma_rp + n_alpha_rp + NPhi; // number of random parameters
 	RP_g = NPsi + 1; // location of first gamma
 	RP_a = NPsi + n_gamma_rp + 1; // location of first alpha
 	}
@@ -35,8 +35,8 @@ transformed data {
 
 parameters {
 //	vector[n_psi_fixed] psi;
-	vector<lower=0 >[gamma_fixed == 1 ? Gamma : 0] gamma;
-	vector<lower=0, upper=1>[alpha_fixed == 1 ? A : 0] alpha;
+	vector<lower=0 >[gamma_nonrandom == 1 ? Gamma : 0] gamma;
+	vector<lower=0, upper=1>[alpha_nonrandom == 1 ? A : 0] alpha;
 	vector[RP] mu;                                // means for random parameters
   	matrix[I, RP] z;                             // std normal draws
 	cholesky_factor_corr[corr == 1 ? RP : 0] L_Omega; // cholesky factors
@@ -51,8 +51,6 @@ transformed parameters {
   	{
 	matrix[I, RP] beta;             // individual level parameters
 	matrix[I, J] lpsi;
-   	matrix[I, NPsi] psi_individual;
-  	matrix[I, J+1] alpha_full;
   	vector[I] alpha_individual_1;
   	matrix[I, J] alpha_individual_j;
   	matrix[I, J] gamma_individual;
@@ -67,8 +65,8 @@ transformed parameters {
 		beta = rep_matrix(mu', I) + diag_post_multiply(z, tau);
 	}
 
-	if (alpha_fixed == 0){
-		if (model_num < 4){
+	if (alpha_nonrandom == 0){
+		if (model_num != 4){
 			alpha_individual_1 = inv(1 + exp(-col(beta, RP_a)));
 			if (model_num == 1)
 			  	alpha_individual_j = rep_matrix(0, I, J);
@@ -80,63 +78,80 @@ transformed parameters {
 			alpha_individual_1 = rep_vector(1e-03, I);
 			alpha_individual_j = rep_matrix(1e-03, I, J);
 		}
-	} else if (alpha_fixed == 1){
-		alpha_full = alpha_ll(alpha, I, J, model_num);
+	} else if (alpha_nonrandom == 1){
+		matrix[I, J+1] alpha_full = alpha_ll(alpha, I, J, model_num);
 		alpha_individual_1 = col(alpha_full, 1);
 		alpha_individual_j = block(alpha_full, 1, 2, I, J);
 	}
 
-	if (gamma_fixed == 0){
-		if (model_num == 2)
-	  		gamma_individual = rep_matrix(1, I, J);
-		else
-	  		gamma_individual = exp(block(beta, 1, RP_g, I, J));
-	} else if (gamma_fixed == 1){
-		gamma_individual = gamma_ll(gamma, I, J, model_num);
+	if (gamma_nonrandom == 0 && model_num != 2){
+		if (gamma_ascs == 1)
+			gamma_individual = exp(block(beta, 1, RP_g, I, Gamma));
+		else if (gamma_ascs == 0)
+			gamma_individual = rep_matrix(exp(col(beta, RP_g)), J);
+	} else
+		gamma_individual = gamma_ll(gamma, I, J, Gamma);
+
+	if (psi_ascs == 1){
+		lpsi = append_col(rep_vector(0, I), block(beta, 1, 1, I, J-1)); // pull out acs
+		if (NPsi_ij > 0)
+			for(i in 1:I)
+				lpsi[i] = lpsi[i] + sub_row(beta, task_individual[i], J, NPsi_ij) * dat_psi[start[i]:end[i]]';
+	} else if (psi_ascs == 0){
+		if (NPsi_ij > 0)
+			for(i in 1:I)
+				lpsi[i] = sub_row(beta, task_individual[i], 1, NPsi_ij) * dat_psi[start[i]:end[i]]';
+		else if (NPsi_ij == 0)
+			lpsi = rep_matrix(0, I, J);
 	}
 
-	psi_individual = block(beta, 1, 1, I, NPsi);
-
-	for(t in 1:I){
-		row_vector[J] util;
-		util = psi_individual[task_individual[t]] * dat_psi[start[t]:end[t]]';
-		lpsi[t] = util;
-	}
-
-	log_like = mdcev_ll(quant_j, price_j, log_num, log_inc, M, log_M_fact, // data
+	if(model_num < 5){
+		log_like = mdcev_ll(quant_j, price_j, log_num, income, M, log_M_fact, // data
 			lpsi, gamma_individual, alpha_individual_1, alpha_individual_j, scale_full, 						// parameters
 			I, J, nonzero, trunc_data);
+	} else if (model_num == 5){
+		matrix[I, J] phi_ij;
+		if (NPhi == 0)
+			phi_ij = rep_matrix(1, I, J);
+		else if(NPhi > 0)
+			for(i in 1:I)
+				phi_ij[i] = exp(sub_row(beta, task_individual[i], RP - NPhi + 1, NPhi) * dat_phi[start[i]:end[i]]');
+
+		log_like = kt_ll(quant_j, price_j, log_num, income,
+  					lpsi, phi_ij, gamma_individual, alpha_individual_1, scale_full,
+  					I, J, nonzero, trunc_data, jacobian_analytical_grad);
 	}
+  	}
 }
 
 model {
   // priors on the parameters
-  	gamma ~ normal(0, prior_gamma_sd);
-	alpha ~ normal(.5, prior_alpha_sd);
-	to_vector(z) ~ normal(0, 1);
+  	gamma ~ normal(1, prior_gamma_sd);
+	alpha ~ beta(prior_alpha_shape, prior_alpha_shape);
+	to_vector(z) ~ std_normal();
 	to_vector(mu) ~ normal(0, 10);
 	L_Omega ~ lkj_corr_cholesky(lkj_shape);                 // lkj prior
-	scale ~ normal(1, 1);
+	scale ~ normal(0, 1);
 	// no priors for tau because already constrained to uniform
   target += sum(log_like .* weights);//objective to target
 }
 
 generated quantities{
-//   matrix[RP, RP] Sigma;                            // cov matrix
- //  matrix[RP, RP] Omega;
+   matrix[RP, RP] Sigma;                            // cov matrix
    real<upper=0> sum_log_lik = 0;// log_lik for each sample
 
-//	{
-//	   matrix[RP, RP] L;
-//		if (corr == 1){
-//			Omega = multiply_lower_tri_self_transpose(L_Omega);  // correlation matrix
-//			Sigma = quad_form_diag(Omega, tau);               // var-covar matrix
-//		} else if (corr == 0){
-//			Sigma = diag_matrix(tau);
-//		}
-//	}
+	{
+	   matrix[RP, RP] L;
+		if (corr == 1){
+			matrix[RP, RP] Omega;
+			Omega = multiply_lower_tri_self_transpose(L_Omega);  // correlation matrix
+			Sigma = quad_form_diag(Omega, tau);               // var-covar matrix
+		} else if (corr == 0){
+			Sigma = diag_matrix(tau);
+		}
+	}
 
 	for(i in 1:I){
-		sum_log_lik = sum_log_lik + log_like[i];
+		sum_log_lik = sum_log_lik + log_like[i] * weights[i];
 	}
 }

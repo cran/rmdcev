@@ -24,7 +24,7 @@ print.mdcev <- function(x, digits = max(3, getOption("digits") - 3),
 #' @param printCI set to TRUE to print 95\% confidence intervals
 #' @export
 summary.mdcev <- function(object, printCI=FALSE, ...){
-
+#object <- output
 	if(object$algorithm == "MLE"){
 
 		if(object$std_errors == "deltamethod"){
@@ -35,12 +35,12 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 			cov_mat <- solve(-object$stan_fit$hessian)
 			std_err <- sqrt(diag(cov_mat))
 			parms <- object[["parms_info"]][["parm_names"]][["all_names"]]
-			output <- tbl_df(cbind(parms, coefs, std_err)) %>%
+			output <- as_tibble(cbind(parms, coefs, std_err)) %>%
 				mutate(coefs = as.numeric(coefs),
 					   std_err = as.numeric(std_err),
 					   Estimate = round(coefs, 3),
 					   Std.err = round(ifelse(stringr::str_detect(parms, "alpha"), std_err*exp(-coefs)/((1+exp(-coefs)))^2,
-					   					   ifelse(stringr::str_detect(parms, "gamma|scale"), std_err*coefs, std_err)),3),
+					   					   ifelse(stringr::str_detect(parms, "gamma|scale|phi"), std_err*coefs, std_err)),3),
 					   z.stat = round(coefs / Std.err,2),
 					   ci_lo95 = round(coefs - 1.96 * Std.err,3),
 					   ci_hi95 = round(coefs + 1.96 * Std.err,3)) %>%
@@ -49,7 +49,7 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 		} else if(object$std_errors == "mvn"){
 
 			# Get parameter estimates in matrix form
-			output <- tbl_df(object[["stan_fit"]][["theta_tilde"]]) %>%
+			output <- as_tibble(object[["stan_fit"]][["theta_tilde"]]) %>%
 				dplyr::select(-tidyselect::starts_with("log_like"), -tidyselect::starts_with("sum_log_lik"))
 
 			names(output)[1:object$parms_info$n_vars$n_parms_total] <- object$parms_info$parm_names$all_names
@@ -82,7 +82,7 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 			tibble::rowid_to_column("sim_id") %>%
 			tidyr::gather(parms, value, -sim_id)
 
-		bayes_extra <- tbl_df(rstan::summary(object$stan_fit)$summary) %>%
+		bayes_extra <- as_tibble(rstan::summary(object$stan_fit)$summary) %>%
 			mutate(parms = row.names(rstan::summary(object$stan_fit)$summary))
 
 		if (object$random_parameters == "fixed"){
@@ -111,11 +111,11 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 								  object[["parms_info"]][["parm_names"]][["sd_names"]]), max(output$sim_id))
 
 			# Transform estimates
-			if(object[["stan_data"]][["gamma_fixed"]]==0){
+			if(object[["stan_data"]][["gamma_nonrandom"]]==0){
 				output <- output %>%
 					mutate(value = ifelse(grepl(c("gamma"), parms), exp(value), value))
 			}
-			if(object[["stan_data"]][["alpha_fixed"]]==0){
+			if(object[["stan_data"]][["alpha_nonrandom"]]==0){
 				output <- output %>%
 					mutate(value = ifelse(grepl(c("alpha"), parms), 1 / (1 + exp(-value)), value))
 			}
@@ -142,7 +142,7 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 			mutate(parms = factor(parms,levels=unique(parms))) %>%
 			group_by(parms) %>%
 			summarise(Estimate = round(mean(value),3),
-					  Std.err = round(stats::sd(value),3),
+					  Std.dev = round(stats::sd(value),3),
 					  z.stat = round(mean(value) / stats::sd(value),2),
 					  ci_lo95 = round(stats::quantile(value, 0.025),3),
 					  ci_hi95 = round(stats::quantile(value, 0.975),3)) %>%
@@ -219,7 +219,7 @@ print.summary.mdcev <- function(x,...){
 
 	cat("\nAverage consumption of non-numeraire alternatives:\n")
 	mean_consumption <-  round(colMeans(x$stan_data$quant_j),2)
-	names(mean_consumption) <-c(1:x$stan_data$J)
+	names(mean_consumption) <-x$parms_info$alt_names
 	print(mean_consumption )
 	cat("\n")
 
@@ -250,7 +250,7 @@ print.summary.mdcev <- function(x,...){
 		cat("Note: Estimation accounts for truncated form of data.",'\n')
 
 	if(x$random_parameters == "corr"){
-		cat("Note: Full covariance matrix can be accessed using the print(model_est, pars = 'Sigma') command", '\n')
+		cat("Note: The full covariance matrix can be accessed using the print(output$stan_fit, pars = 'Sigma') command where output is name of model output", '\n')
 	}
 
 	if(x$algorithm == "Bayes"){
