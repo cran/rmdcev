@@ -5,7 +5,7 @@
 #' model and Kuhn-Tucker specification common in the environmental economics literature on recreation demand.
 #' Latent class and random parameters specifications can be implemented and the models are fit using maximum
 #' likelihood estimation or Bayesian estimation. All models are implemented in Stan, which is a C++ package
-#' for performing full Bayesian inference (see Stan Development Team, 2019) <http://mc-stan.org>. The rmdcev package also implements
+#' for performing full Bayesian inference (see Stan Development Team, 2019) <https://mc-stan.org/>. The rmdcev package also implements
 #' demand forecasting (Pinjari and Bhat (2011) <https://repositories.lib.utexas.edu/handle/2152/23880>) and
 #' welfare calculation (Lloyd-Smith (2018) <doi.org/10.1016/j.jocm.2017.12.002>) for policy simulation.
 #'
@@ -27,7 +27,7 @@
 
 #' Pinjari, AR, Bhat, CR (2011). Computationally Efficient Forecasting Procedures for Kuhn-Tucker Consumer Demand Model Systems: Application to Residential Energy Consumption Analysis. Department of Civil and Environmental Engineering, University of South Florida. \href{https://repositories.lib.utexas.edu/handle/2152/23880}{(link)}
 
-#' Stan Development Team (2019). RStan: the R interface to Stan. R package version 2.19.2. \href{http://mc-stan.org}{(link)}
+#' Stan Development Team (2019). RStan: the R interface to Stan. R package version 2.19.2. \href{https://mc-stan.org/}{(link)}
 NULL
 
 ## quiets concerns of R CMD check re: the .'s that appear in pipelines

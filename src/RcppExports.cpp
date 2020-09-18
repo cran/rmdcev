@@ -8,21 +8,21 @@
 using namespace Rcpp;
 
 // Shuffle_rng
-Eigen::Matrix<double, 1, Eigen::Dynamic> Shuffle_rng(const Eigen::Matrix<double, 1, Eigen::Dynamic>& inv, const int& nerrs, boost::ecuyer1988& base_rng__, std::ostream* pstream__);
-RcppExport SEXP _rmdcev_Shuffle_rng(SEXP invSEXP, SEXP nerrsSEXP, SEXP base_rng__SEXP, SEXP pstream__SEXP) {
+Eigen::Matrix<double, Eigen::Dynamic, 1> Shuffle_rng(const Eigen::Matrix<double, Eigen::Dynamic, 1>& inv_temp, const int& nerrs, boost::ecuyer1988& base_rng__, std::ostream* pstream__);
+RcppExport SEXP _rmdcev_Shuffle_rng(SEXP inv_tempSEXP, SEXP nerrsSEXP, SEXP base_rng__SEXP, SEXP pstream__SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const Eigen::Matrix<double, 1, Eigen::Dynamic>& >::type inv(invSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type inv_temp(inv_tempSEXP);
     Rcpp::traits::input_parameter< const int& >::type nerrs(nerrsSEXP);
     Rcpp::traits::input_parameter< boost::ecuyer1988& >::type base_rng__(base_rng__SEXP);
     Rcpp::traits::input_parameter< std::ostream* >::type pstream__(pstream__SEXP);
-    rcpp_result_gen = Rcpp::wrap(Shuffle_rng(inv, nerrs, base_rng__, pstream__));
+    rcpp_result_gen = Rcpp::wrap(Shuffle_rng(inv_temp, nerrs, base_rng__, pstream__));
     return rcpp_result_gen;
 END_RCPP
 }
 // DrawMlhs_rng
-Eigen::Matrix<double, 1, Eigen::Dynamic> DrawMlhs_rng(const int& nerrs, const int& draw_mlhs, boost::ecuyer1988& base_rng__, std::ostream* pstream__);
+Eigen::Matrix<double, Eigen::Dynamic, 1> DrawMlhs_rng(const int& nerrs, const int& draw_mlhs, boost::ecuyer1988& base_rng__, std::ostream* pstream__);
 RcppExport SEXP _rmdcev_DrawMlhs_rng(SEXP nerrsSEXP, SEXP draw_mlhsSEXP, SEXP base_rng__SEXP, SEXP pstream__SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -90,35 +90,19 @@ BEGIN_RCPP
 END_RCPP
 }
 // ComputeE
-double ComputeE(const int& M, const double& lambda, const Eigen::Matrix<double, Eigen::Dynamic, 1>& g_price, const Eigen::Matrix<double, Eigen::Dynamic, 1>& b, const Eigen::Matrix<double, Eigen::Dynamic, 1>& c, const Eigen::Matrix<double, Eigen::Dynamic, 1>& d, std::ostream* pstream__);
-RcppExport SEXP _rmdcev_ComputeE(SEXP MSEXP, SEXP lambdaSEXP, SEXP g_priceSEXP, SEXP bSEXP, SEXP cSEXP, SEXP dSEXP, SEXP pstream__SEXP) {
+double ComputeE(const int& M, const double& lambda, const Eigen::Matrix<double, Eigen::Dynamic, 1>& g_price__phi, const Eigen::Matrix<double, Eigen::Dynamic, 1>& b, const Eigen::Matrix<double, Eigen::Dynamic, 1>& c, const Eigen::Matrix<double, Eigen::Dynamic, 1>& d, std::ostream* pstream__);
+RcppExport SEXP _rmdcev_ComputeE(SEXP MSEXP, SEXP lambdaSEXP, SEXP g_price__phiSEXP, SEXP bSEXP, SEXP cSEXP, SEXP dSEXP, SEXP pstream__SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const int& >::type M(MSEXP);
     Rcpp::traits::input_parameter< const double& >::type lambda(lambdaSEXP);
-    Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type g_price(g_priceSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type g_price__phi(g_price__phiSEXP);
     Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type b(bSEXP);
     Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type c(cSEXP);
     Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type d(dSEXP);
     Rcpp::traits::input_parameter< std::ostream* >::type pstream__(pstream__SEXP);
-    rcpp_result_gen = Rcpp::wrap(ComputeE(M, lambda, g_price, b, c, d, pstream__));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ComputeKtE
-double ComputeKtE(const int& M, const double& lambda, const Eigen::Matrix<double, Eigen::Dynamic, 1>& mu, const Eigen::Matrix<double, Eigen::Dynamic, 1>& g_price__phi, const double& alpha_1, std::ostream* pstream__);
-RcppExport SEXP _rmdcev_ComputeKtE(SEXP MSEXP, SEXP lambdaSEXP, SEXP muSEXP, SEXP g_price__phiSEXP, SEXP alpha_1SEXP, SEXP pstream__SEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const int& >::type M(MSEXP);
-    Rcpp::traits::input_parameter< const double& >::type lambda(lambdaSEXP);
-    Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type mu(muSEXP);
-    Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type g_price__phi(g_price__phiSEXP);
-    Rcpp::traits::input_parameter< const double& >::type alpha_1(alpha_1SEXP);
-    Rcpp::traits::input_parameter< std::ostream* >::type pstream__(pstream__SEXP);
-    rcpp_result_gen = Rcpp::wrap(ComputeKtE(M, lambda, mu, g_price__phi, alpha_1, pstream__));
+    rcpp_result_gen = Rcpp::wrap(ComputeE(M, lambda, g_price__phi, b, c, d, pstream__));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -145,22 +129,22 @@ BEGIN_RCPP
 END_RCPP
 }
 // ComputeUtilJ
-double ComputeUtilJ(const double& income, const Eigen::Matrix<double, Eigen::Dynamic, 1>& quant_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& price_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& psi_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& phi_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& gamma_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& alpha, const int& nalts, const int& model_num, std::ostream* pstream__);
-RcppExport SEXP _rmdcev_ComputeUtilJ(SEXP incomeSEXP, SEXP quant_jSEXP, SEXP price_jSEXP, SEXP psi_jSEXP, SEXP phi_jSEXP, SEXP gamma_jSEXP, SEXP alphaSEXP, SEXP naltsSEXP, SEXP model_numSEXP, SEXP pstream__SEXP) {
+double ComputeUtilJ(const double& income, const Eigen::Matrix<double, Eigen::Dynamic, 1>& quant_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& price_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& psi, const Eigen::Matrix<double, Eigen::Dynamic, 1>& phi_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& gamma_j, const Eigen::Matrix<double, Eigen::Dynamic, 1>& alpha, const int& nalts, const int& model_num, std::ostream* pstream__);
+RcppExport SEXP _rmdcev_ComputeUtilJ(SEXP incomeSEXP, SEXP quant_jSEXP, SEXP price_jSEXP, SEXP psiSEXP, SEXP phi_jSEXP, SEXP gamma_jSEXP, SEXP alphaSEXP, SEXP naltsSEXP, SEXP model_numSEXP, SEXP pstream__SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const double& >::type income(incomeSEXP);
     Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type quant_j(quant_jSEXP);
     Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type price_j(price_jSEXP);
-    Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type psi_j(psi_jSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type psi(psiSEXP);
     Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type phi_j(phi_jSEXP);
     Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type gamma_j(gamma_jSEXP);
     Rcpp::traits::input_parameter< const Eigen::Matrix<double, Eigen::Dynamic, 1>& >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< const int& >::type nalts(naltsSEXP);
     Rcpp::traits::input_parameter< const int& >::type model_num(model_numSEXP);
     Rcpp::traits::input_parameter< std::ostream* >::type pstream__(pstream__SEXP);
-    rcpp_result_gen = Rcpp::wrap(ComputeUtilJ(income, quant_j, price_j, psi_j, phi_j, gamma_j, alpha, nalts, model_num, pstream__));
+    rcpp_result_gen = Rcpp::wrap(ComputeUtilJ(income, quant_j, price_j, psi, phi_j, gamma_j, alpha, nalts, model_num, pstream__));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -310,18 +294,18 @@ BEGIN_RCPP
 END_RCPP
 }
 
-RcppExport SEXP _rcpp_module_boot_stan_fit4SimulationFunctions_mod();
 RcppExport SEXP _rcpp_module_boot_stan_fit4mdcev_mod();
 RcppExport SEXP _rcpp_module_boot_stan_fit4mdcev_rp_mod();
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_rcpp_module_boot_stan_fit4mdcev_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4mdcev_mod, 3},
+    {"_rcpp_module_boot_stan_fit4mdcev_rp_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4mdcev_rp_mod, 3},
     {"_rmdcev_Shuffle_rng", (DL_FUNC) &_rmdcev_Shuffle_rng, 4},
     {"_rmdcev_DrawMlhs_rng", (DL_FUNC) &_rmdcev_DrawMlhs_rng, 4},
     {"_rmdcev_DrawError_rng", (DL_FUNC) &_rmdcev_DrawError_rng, 15},
     {"_rmdcev_CalcAltOrder", (DL_FUNC) &_rmdcev_CalcAltOrder, 3},
     {"_rmdcev_SortParmMatrix", (DL_FUNC) &_rmdcev_SortParmMatrix, 6},
     {"_rmdcev_ComputeE", (DL_FUNC) &_rmdcev_ComputeE, 7},
-    {"_rmdcev_ComputeKtE", (DL_FUNC) &_rmdcev_ComputeKtE, 6},
     {"_rmdcev_MarshallianDemand", (DL_FUNC) &_rmdcev_MarshallianDemand, 12},
     {"_rmdcev_ComputeUtilJ", (DL_FUNC) &_rmdcev_ComputeUtilJ, 10},
     {"_rmdcev_ComputeUtilM", (DL_FUNC) &_rmdcev_ComputeUtilM, 11},
@@ -330,9 +314,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rmdcev_CalcWTP_rng", (DL_FUNC) &_rmdcev_CalcWTP_rng, 21},
     {"_rmdcev_CalcMarshallianDemand_rng", (DL_FUNC) &_rmdcev_CalcMarshallianDemand_rng, 21},
     {"_rmdcev_CalcmdemandOne_rng", (DL_FUNC) &_rmdcev_CalcmdemandOne_rng, 14},
-    {"_rcpp_module_boot_stan_fit4SimulationFunctions_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4SimulationFunctions_mod, 0},
-    {"_rcpp_module_boot_stan_fit4mdcev_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4mdcev_mod, 0},
-    {"_rcpp_module_boot_stan_fit4mdcev_rp_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4mdcev_rp_mod, 0},
     {NULL, NULL, 0}
 };
 

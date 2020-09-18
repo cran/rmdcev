@@ -56,14 +56,17 @@ mdcev.sim <- function(df_indiv, df_common, sim_options,
 					  stan_seed = 3,
 					  ...){
 
+
+	if (!is.element(sim_type, c("welfare", "demand"))) stop("sim_type must be 'welfare' or 'demand'")
+
 	start.time <- proc.time()
 
 	# Checks on simulation options
 	model_num <- sim_options$model_num
 
 	if (!is.null(algo_gen)){
-		if (model_num < 3 && algo_gen == 0){
-			warning("Can't use hybrid algorithm with model_num = 1 or 2. Changing to general approach.")
+		if ((model_num == 1 || model_num == 2 || model_num == 5) && algo_gen == 0){
+			warning("Can't use hybrid algorithm with non-hybrid model specifications. Changing to general approach.")
 			algo_gen <- 1
 		}
 	} else if (is.null(algo_gen)) {
@@ -71,8 +74,6 @@ mdcev.sim <- function(df_indiv, df_common, sim_options,
 			algo_gen <- 0
 		else if (model_num == 1 || model_num == 2 || model_num == 5)
 			algo_gen <- 1
-#		else if (model_num == 5)
-#			algo_gen <- 2
 	}
 
 

@@ -38,7 +38,7 @@ test_that("MLE hybrid0", {
 	output <- mdcev( ~ alt - 1,
 				   data = data_rec,
 				   model = "hybrid0",
-					 psi_ascs = 0,
+				   psi_ascs = 0,
 				   algorithm = "MLE",
 				   print_iterations = FALSE)
 
@@ -48,11 +48,28 @@ test_that("MLE hybrid0", {
 	print(output$log.likelihood, digits =10)
 	print(output$bic, digits =10)
 
-	expect_true(abs(output$log.likelihood - (-2653.222965)) < tol)
-	expect_true(abs(output$bic - 5467.626887) < tol)
-	expect_true(abs(output[["stan_fit"]][["par"]][["scale"]] - 0.7849449) < tol)
-	expect_true(abs(output[["stan_fit"]][["par"]][["psi"]][[1]] - -7.08514) < tol)
+	expect_true(abs(output$log.likelihood - (-2653.237031)) < tol)
+	expect_true(abs(output$bic - 5467.655) < tol)
+	expect_true(abs(output[["stan_fit"]][["par"]][["scale"]] - 0.7856681) < tol)
+	expect_true(abs(output[["stan_fit"]][["par"]][["psi"]][[1]] - -7.096204) < tol)
 	expect_equal(length(output[["stan_fit"]][["par"]][["alpha"]]), 0)
+})
+
+
+test_that("MLE hybrid0 mvn draws", {
+
+	output <- mdcev( ~ alt - 1,
+					 data = data_rec,
+					 model = "hybrid0",
+					 psi_ascs = 0,
+					 algorithm = "MLE",
+					 std_errors = "mvn",
+					 print_iterations = FALSE)
+
+	output.sum <- summary(output)
+	expect_equal(length(output.sum[["CoefTable"]]$Std.err), 35)
+	expect_equal(output$model, "hybrid0")
+
 })
 
 
@@ -102,13 +119,17 @@ test_that("MLE alpha", {
 context("MLE kt_ee specification")
 
 test_that("MLE kt_ee", {
-	output <- mdcev( ~ 0 | 0 | 0,
+
+	data_rec$beach = ifelse(data_rec$alt == "beach", 1, 0)
+
+	output <- mdcev( ~ ageindex | 0 | beach,
 					 data = data_rec,
+					 gamma_ascs = 0,
 					 model = "kt_ee",
 					 algorithm = "MLE",
 					 print_iterations = FALSE)
 
 	output.sum <- summary(output)
-	expect_equal(length(output.sum[["CoefTable"]]$Std.err), 19)
-	expect_true(abs(output$log.likelihood - (-2775.93)) < tol)
+	expect_equal(length(output.sum[["CoefTable"]]$Std.err), 5)
+	expect_true(abs(output$log.likelihood - (-2826.694653)) < tol)
 })

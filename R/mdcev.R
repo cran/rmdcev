@@ -68,9 +68,9 @@
 #'     Bayes. Can be 'fixed' for no random parameters, 'uncorr' for uncorrelated random parameters, or
 #'     'corr' for correlated random parameters.
 #' @param max_tree_depth
-#'     http://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded
+#'     https://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded
 #' @param adapt_delta
-#'    http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+#'    https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 #' @param show_stan_warnings Whether to show warnings from Stan.
 #' @param ... Additional parameters to pass on to \code{rstan::stan}
 #'     and \code{rstan::sampling}.
@@ -131,7 +131,7 @@ mdcev <- function(formula = NULL, data,
 	# Check models
 	if (!is.element(algorithm, c("MLE", "Bayes"))) stop("algorithm must be 'MLE' or 'Bayes'")
 	if (!is.element(random_parameters, c("fixed", "uncorr", "corr"))) stop("random_parameters must be 'fixed', 'uncorr' or 'corr'")
-	if (!is.element(model, c("alpha", "gamma", "hybrid", "hybrid0", "kt_ee"))) stop("model must be 'alpha', 'gamma', 'hybrid', 'hybrid0', or 'kt_les'")
+	if (!is.element(model, c("alpha", "gamma", "hybrid", "hybrid0", "kt_ee"))) stop("model must be 'alpha', 'gamma', 'hybrid', 'hybrid0', or 'kt_ee'")
 	if (!is.element(std_errors, c("deltamethod", "mvn"))) stop("std_errors must be 'deltamethod' or 'mvn'")
 
 	if (algorithm == "Bayes" && n_classes > 1)
@@ -153,7 +153,7 @@ mdcev <- function(formula = NULL, data,
 	}
 
 	if(algorithm == "Bayes" || std_errors == "deltamethod")
-		n_draws <- 1
+		n_draws <- 0
 
 		# Put model options in a list
 	mle_options <- list(fixed_scale1 = fixed_scale1,
@@ -171,6 +171,7 @@ mdcev <- function(formula = NULL, data,
 						keep_loglik = keep_loglik,
 						flat_priors = flat_priors,
 						prior_psi_sd = prior_psi_sd,
+						pior_phi_sd = prior_phi_sd,
 						prior_gamma_sd = prior_gamma_sd,
 						prior_alpha_shape = prior_alpha_shape,
 						prior_scale_sd = prior_scale_sd,
@@ -190,7 +191,7 @@ mdcev <- function(formula = NULL, data,
 						lkj_shape_prior = lkj_shape_prior)
 
 	# Need for naming gamma/alpha parameters
-	alt_names <- unique(data$alt)
+	alt_names <- as.character(unlist(unique(attr(data, "index")["alt"])))
 
 	stan_data <- processMDCEVdata(formula, data, mle_options)
 

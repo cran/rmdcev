@@ -2,10 +2,10 @@ context("Test Generate data")
 
 #library(rmdcev)
 tol <- 0.01
-
 nobs <- 200
 nalts <- 5
 test_that("Generate gamma MDCEV data", {
+	set.seed(12345)
 	model = "gamma"
 	sim.data <- GenerateMDCEVData(model = model, nobs = nobs, nalts = nalts)
 
@@ -13,12 +13,14 @@ test_that("Generate gamma MDCEV data", {
 					   data = sim.data$data,
 					   psi_ascs = 0,
 					   model = model,
-					   algorithm = "MLE")
+					   algorithm = "MLE",
+					print_iterations = F)
 	output.sum <- summary(output)
 	expect_equal(length(output.sum[["CoefTable"]]$Std.err), 13)
 })
 
 test_that("Generate alpha MDCEV data", {
+	set.seed(12345)
 	model = "alpha"
 	sim.data <- GenerateMDCEVData(model = model, psi_j = 0, nobs = nobs, nalts = nalts)
 
@@ -26,7 +28,8 @@ test_that("Generate alpha MDCEV data", {
 					data = sim.data$data,
 					psi_ascs = 0,
 					model = model,
-					algorithm = "MLE")
+					algorithm = "MLE",
+					print_iterations = F)
 	output.sum <- summary(output)
 	expect_equal(length(output.sum[["CoefTable"]]$Std.err), 10)
 })
@@ -39,7 +42,8 @@ test_that("Generate hybrid0 MDCEV data", {
 					data = sim.data$data,
 					psi_ascs = 0,
 					model = model,
-					algorithm = "MLE")
+					algorithm = "MLE",
+					print_iterations = F)
 	output.sum <- summary(output)
 	expect_equal(length(output.sum[["CoefTable"]]$Std.err), 9)
 })
