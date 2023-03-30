@@ -8,7 +8,7 @@
 A tibble with 34000 rows and 8 variables
 }
 \source{
-\href{http://donnees.ec.gc.ca/data/managementoversight/systems/canadian-nature-survey-2012/}{Canadian Nature Survey 2012}
+\href{https://donnees.ec.gc.ca/data/managementoversight/systems/canadian-nature-survey-2012/}{Canadian Nature Survey 2012}
 }
 \usage{
 data(data_rec)
@@ -20,7 +20,7 @@ The travel costs are calculated using the approach described in Lloyd-Smith (202
 \references{
 Federal, Provincial, and Territorial Governments of Canada. 2014.
 “2012 Canadian Nature Survey: Awareness, Participation, and Expenditures in Nature-Based Recreation, Conservation, and Subsistence Activities.” Ottawa, ON: Canadian Councils of Resource Ministers.
-(\href{http://publications.gc.ca/site/eng/9.698872/publication.html}{PubMed})
+(\href{https://publications.gc.ca/site/eng/9.698872/publication.html}{PubMed})
 
 Lloyd-Smith, P (2020).
 “The Economic Benefits of Recreation in Canada”. University of Saskatchewan Working Paper

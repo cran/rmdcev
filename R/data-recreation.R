@@ -10,10 +10,10 @@
 #' @keywords datasets
 #' @references Federal, Provincial, and Territorial Governments of Canada. 2014.
 #' “2012 Canadian Nature Survey: Awareness, Participation, and Expenditures in Nature-Based Recreation, Conservation, and Subsistence Activities.” Ottawa, ON: Canadian Councils of Resource Ministers.
-#' (\href{http://publications.gc.ca/site/eng/9.698872/publication.html}{PubMed})
+#' (\href{https://publications.gc.ca/site/eng/9.698872/publication.html}{PubMed})
 #'
-#' @references Lloyd-Smith, P (2020).
-#' “The Economic Benefits of Recreation in Canada”. University of Saskatchewan Working Paper
+#' @references Lloyd-Smith, P (2021).
+#' “The Economic Benefits of Recreation in Canada”. Canadian Journal of Economics 54(4), 1684-1715
 #'
-#' @source \href{http://donnees.ec.gc.ca/data/managementoversight/systems/canadian-nature-survey-2012/}{Canadian Nature Survey 2012}
+#' @source \href{https://donnees.ec.gc.ca/data/managementoversight/systems/canadian-nature-survey-2012/}{Canadian Nature Survey 2012}
 "data_rec"

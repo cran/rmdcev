@@ -9,11 +9,8 @@ data {
 // prior_psi_sd prior_gamma_sd prior_alpha_sd prior_scale_sd
 // model_num fixed_scale1 trunc_data flat_priors weights
 #include /common/mdcev_data.stan
-	int K; // number of mixtures
-
-// additional LC data that can be set to 0 if not used
-	int L; // number of predictors in membership equation
-//	vector[L] data_class[I];   // predictors for component membership
+	int K; // number of mixtures additional LC data that can be set to 0 if not used
+	int L; // number of predictors in membership equation	vector[L] data_class[I];    predictors for component membership
 	matrix[I, L] data_class;   // predictors for component membership
 	int<lower=0, upper=1> single_scale; // indicator to estimate one scale for lc
 	real prior_delta_sd;

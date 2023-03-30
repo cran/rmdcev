@@ -11,8 +11,8 @@ return(out);
 }
 
 /**Generate random draws using Modified Latin Hypercube Sampling algorithm or uniform
-#' Algorithm described in
-#' Hess, S., Train, K., and Polak, J. (2006) Transportation Research 40B, 147 - 163.
+//' Algorithm described in
+//' Hess, S., Train, K., and Polak, J. (2006) Transportation Research 40B, 147 - 163.
 **/
 vector DrawMlhs_rng(int nerrs, int draw_mlhs){
 

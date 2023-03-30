@@ -11,8 +11,7 @@ data {
   int task_individual[I]; // index for individual
   int start[I]; // the starting observation for each task
   int end[I]; // the ending observation for each task
-  real<lower=1> lkj_shape; // shape parameter for LKJ prior
-//  vector[NPsi] psi_ndx;
+  real<lower=1> lkj_shape; // shape parameter for LKJ prior  vector[NPsi] psi_ndx;
   int<lower=0, upper=1>  gamma_nonrandom;
   int<lower=0, upper=1>  alpha_nonrandom;
 }
