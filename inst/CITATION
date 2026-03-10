@@ -1,19 +1,12 @@
-citHeader("To cite the 'rmdcev' package in publications use:")
-
-year = 2020
-vers = paste('R package version', meta$Version)
-
 bibentry(
-	bibtype = "article",
-  author = "Patrick Lloyd-Smith",
-  title = "Kuhn-Tucker and Multiple Discrete-Continuous Extreme Value
-          Model Estimation and Simulation in R: The rmdcev
-          Package",
-  year = "2021",
-  journal = "The R Journal",
-  doi = "10.32614/RJ-2021-015",
-  url = "https://doi.org/10.32614/RJ-2021-015",
-  pages = "251--265",
-  volume = "12",
-  number = "2"
+  bibtype  = "Manual",
+  title    = paste("rmdcev:", meta$Title),
+  author   = Filter(function(p) "aut" %in% p$role, as.person(meta$Author)),
+  year     = "2020",
+  note     = paste("R package version", meta$Version),
+  url      = meta$URL,
+  textVersion = paste0(
+    "Patrick Lloyd-Smith (2020). rmdcev: ", meta$Title, ". ",
+    "R package version ", meta$Version, "."
+  )
 )

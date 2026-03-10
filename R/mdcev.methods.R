@@ -24,7 +24,6 @@ print.mdcev <- function(x, digits = max(3, getOption("digits") - 3),
 #' @param printCI set to TRUE to print 95\% confidence intervals
 #' @export
 summary.mdcev <- function(object, printCI=FALSE, ...){
-#object <- output
 	if(object$algorithm == "MLE"){
 
 		if(object$std_errors == "deltamethod"){
@@ -36,15 +35,20 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 			std_err <- sqrt(diag(cov_mat))
 			parms <- object[["parms_info"]][["parm_names"]][["all_names"]]
 			output <- as_tibble(cbind(parms, coefs, std_err)) %>%
-				mutate(coefs = as.numeric(coefs),
-					   std_err = as.numeric(std_err),
-					   Estimate = round(coefs, 3),
-					   Std.err = round(ifelse(grepl("alpha", parms), std_err*exp(-coefs)/((1+exp(-coefs)))^2,
-					   					   ifelse(grepl("gamma|scale", parms), std_err*coefs, std_err)),3),
-					   z.stat = round(coefs / Std.err,2),
-					   ci_lo95 = round(coefs - 1.96 * Std.err,3),
-					   ci_hi95 = round(coefs + 1.96 * Std.err,3)) %>%
-				select(parms, Estimate, Std.err, z.stat, ci_lo95, ci_hi95)
+				mutate(
+					coefs   = as.numeric(.data$coefs),
+					std_err = as.numeric(.data$std_err),
+					Estimate = round(.data$coefs, 3),
+					Std.err = round(ifelse(
+						grepl("alpha", .data$parms),
+						.data$std_err * exp(-.data$coefs) / ((1 + exp(-.data$coefs)))^2,
+						ifelse(grepl("gamma|scale", .data$parms),
+						       .data$std_err * .data$coefs, .data$std_err)), 3)) %>%
+				mutate(
+					z.stat  = round(.data$coefs / .data$Std.err, 2),
+					ci_lo95 = round(.data$coefs - 1.96 * .data$Std.err, 3),
+					ci_hi95 = round(.data$coefs + 1.96 * .data$Std.err, 3)) %>%
+				select("parms", "Estimate", "Std.err", "z.stat", "ci_lo95", "ci_hi95")
 
 		} else if(object$std_errors == "mvn"){
 
@@ -58,20 +62,20 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 			output$sim_id <- seq.int(nrow(output))
 
 			output <- output %>%
-				tidyr::pivot_longer(-sim_id, names_to = "parms", values_to = "value") %>%
-				mutate(parms = factor(parms,levels=unique(parms))) %>%
-				group_by(parms) %>%
-				summarise(Estimate = round(mean(value),3),
-						  Std.err = round(stats::sd(value),3),
-						  z.stat = round(mean(value) / stats::sd(value),2),
-						  ci_lo95 = round(stats::quantile(value, 0.025),3),
-						  ci_hi95 = round(stats::quantile(value, 0.975),3),
+				tidyr::pivot_longer(-"sim_id", names_to = "parms", values_to = "value") %>%
+				mutate(parms = factor(.data$parms, levels = unique(.data$parms))) %>%
+				group_by(.data$parms) %>%
+				summarise(Estimate = round(mean(.data$value), 3),
+						  Std.err  = round(stats::sd(.data$value), 3),
+						  z.stat   = round(mean(.data$value) / stats::sd(.data$value), 2),
+						  ci_lo95  = round(stats::quantile(.data$value, 0.025), 3),
+						  ci_hi95  = round(stats::quantile(.data$value, 0.975), 3),
 						  .groups = 'drop')
 		}
 	} else if (object$algorithm == "Bayes"){
 
-		# Get parameter estimates in matrix form
-		output <- as.data.frame(rstan::extract(object$stan_fit, permuted = TRUE, inc_warmup = FALSE))
+		# Get parameter estimates in matrix form (works for both rstan and cmdstanr)
+		output <- extract_bayes_draws(object)
 		output <- output[,!grepl(c("^log_like|^sum_log_lik|^tau_unif|^lp__"), colnames(output))]
 
 		if (object$random_parameters == "fixed")
@@ -80,31 +84,30 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 		output$sim_id <- seq.int(nrow(output))
 
 		output <- output %>%
-			tidyr::pivot_longer(-sim_id, names_to = "parms", values_to = "value")
+			tidyr::pivot_longer(-"sim_id", names_to = "parms", values_to = "value")
 
-		bayes_extra <- as_tibble(rstan::summary(object$stan_fit)$summary) %>%
-			mutate(parms = row.names(rstan::summary(object$stan_fit)$summary)) %>%
-				filter(!grepl(c("log_lik"), parms)) %>%
-				filter(!grepl(c("lp_"), parms))
+		bayes_extra <- get_bayes_summary(object) %>%
+				filter(!grepl(c("log_lik"), .data$parms)) %>%
+				filter(!grepl(c("lp_"), .data$parms))
 
 		if (object$random_parameters == "fixed"){
 
 			parm.names <- unique(output$parms)
 
-			bayes_extra <- bayes_extra  %>%
-				select(parms, n_eff, Rhat) %>%
-				mutate(parms = factor(parm.names,levels=unique(parm.names)),
-					   n_eff = round(as.numeric(n_eff), 0),
-					   Rhat = round(as.numeric(Rhat), 2))
+			bayes_extra <- bayes_extra %>%
+				select("parms", "n_eff", "Rhat") %>%
+				mutate(parms = factor(parm.names, levels = unique(parm.names)),
+					   n_eff = round(as.numeric(.data$n_eff), 0),
+					   Rhat  = round(as.numeric(.data$Rhat), 2))
 
-		} else if (object$random_parameters != "fixed"){
+		} else {
 
 			output_non_mu <- output[grepl("gamma|alpha|tau|scale", output$parms),]
 
 			output <- output %>%
-				filter(grepl("mu", parms)) %>%
+				filter(grepl("mu", .data$parms)) %>%
 				bind_rows(output_non_mu) %>%
-				arrange(sim_id)
+				arrange(.data$sim_id)
 
 			output$parms <- rep(c(object[["parms_info"]][["parm_names"]][["all_names"]],
 								  object[["parms_info"]][["parm_names"]][["sd_names"]]), max(output$sim_id))
@@ -112,39 +115,39 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 			# Transform estimates
 			if(object[["stan_data"]][["gamma_nonrandom"]]==0){
 				output <- output %>%
-					mutate(value = ifelse(grepl(c("gamma"), parms), exp(value), value))
+					mutate(value = ifelse(grepl(c("gamma"), .data$parms), exp(.data$value), .data$value))
 			}
 			if(object[["stan_data"]][["alpha_nonrandom"]]==0){
 				output <- output %>%
-					mutate(value = ifelse(grepl(c("alpha"), parms), 1 / (1 + exp(-value)), value))
+					mutate(value = ifelse(grepl(c("alpha"), .data$parms), 1 / (1 + exp(-.data$value)), .data$value))
 			}
 
 			bayes_extra_non_mu <- bayes_extra %>%
-				filter(grepl(c("gamma|alpha|scale|tau"), parms)) %>%
-				filter(!grepl(c("tau_unif"), parms))
+				filter(grepl(c("gamma|alpha|scale|tau"), .data$parms)) %>%
+				filter(!grepl(c("tau_unif"), .data$parms))
 
 			bayes_extra <- bayes_extra %>%
-				filter(grepl(c("mu"), parms)) %>%
+				filter(grepl(c("mu"), .data$parms)) %>%
 				bind_rows(bayes_extra_non_mu)
 
 			bayes_extra$parms <- c(object[["parms_info"]][["parm_names"]][["all_names"]],
 								   object[["parms_info"]][["parm_names"]][["sd_names"]])
 
 			bayes_extra <- bayes_extra %>%
-				select(parms, n_eff, Rhat) %>%
-				mutate(parms = factor(parms,levels=unique(parms)),
-					   n_eff = round(as.numeric(n_eff), 0),
-					   Rhat = round(as.numeric(Rhat), 2))
+				select("parms", "n_eff", "Rhat") %>%
+				mutate(parms = factor(.data$parms, levels = unique(.data$parms)),
+					   n_eff = round(as.numeric(.data$n_eff), 0),
+					   Rhat  = round(as.numeric(.data$Rhat), 2))
 		}
 
 		output <- output %>%
-			mutate(parms = factor(parms,levels=unique(parms))) %>%
-			group_by(parms) %>%
-			summarise(Estimate = round(mean(value),3),
-					  Std.dev = round(stats::sd(value),3),
-					  z.stat = round(mean(value) / stats::sd(value),2),
-					  ci_lo95 = round(stats::quantile(value, 0.025),3),
-					  ci_hi95 = round(stats::quantile(value, 0.975),3),
+			mutate(parms = factor(.data$parms, levels = unique(.data$parms))) %>%
+			group_by(.data$parms) %>%
+			summarise(Estimate = round(mean(.data$value), 3),
+					  Std.dev  = round(stats::sd(.data$value), 3),
+					  z.stat   = round(mean(.data$value) / stats::sd(.data$value), 2),
+					  ci_lo95  = round(stats::quantile(.data$value, 0.025), 3),
+					  ci_hi95  = round(stats::quantile(.data$value, 0.975), 3),
 					  .groups = 'drop') %>%
 			left_join(bayes_extra, by = "parms")
 	}
@@ -153,10 +156,10 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 
 	rownames(output) <- c(as.character(output$parms))
 
-	dropcolumns=NULL
-	if(printCI==FALSE) dropcolumns = c(dropcolumns,5,6)
-	dropcolumns = unique(dropcolumns)
-	if(length(dropcolumns)>0) output = output[,-dropcolumns, drop=FALSE]
+	dropcolumns <- NULL
+	if (!printCI) dropcolumns <- c(dropcolumns, 5, 6)
+	dropcolumns <- unique(dropcolumns)
+	if (length(dropcolumns) > 0) output <- output[, -dropcolumns, drop = FALSE]
 
 	output$parms <- NULL
 
@@ -169,8 +172,6 @@ summary.mdcev <- function(object, printCI=FALSE, ...){
 #' @method print summary.mdcev
 #' @export
 print.summary.mdcev <- function(x,...){
-	#	x <- output
-
 	rmdcevVersion <- tryCatch(utils::packageDescription("rmdcev", fields = "Version"),
 							  warning=function(w) return("rmdcev"),
 							  error=function(e) return("rmdcev"))
@@ -194,10 +195,12 @@ print.summary.mdcev <- function(x,...){
 			cat("Standard errors calculated using : ", x$n_draws," MVN draws", "\n", sep="")
 		}
 
-		if(x$stan_fit$return_code==0){
+		if (x$stan_fit$return_code == 0){
 			converge <- "successful convergence"
-		} else if(x$stan_fit$return_code==1){
+		} else if (x$stan_fit$return_code == 1){
 			converge <- "unsuccessful convergence"
+		} else {
+			converge <- paste("unknown return code:", x$stan_fit$return_code)
 		}
 		cat("Exit of MLE                      : ", converge,"\n", sep="")
 
@@ -205,9 +208,10 @@ print.summary.mdcev <- function(x,...){
 		if(x$random_parameters != "fixed"){
 			cat("Random parameters                : ", x$random_parameters,"elated random parameters","\n", sep="")
 		}
-		cat("Number of chains                 : ", x[["stan_fit"]]@sim[["chains"]],"\n", sep="")
-		cat("Number of warmup draws per chain : ", x[["stan_fit"]]@sim[["warmup"]],"\n", sep="")
-		cat("Total post-warmup sample         : ", x[["stan_fit"]]@sim[["chains"]]*(x[["stan_fit"]]@sim[["iter"]]-x[["stan_fit"]]@sim[["warmup"]]),"\n", sep="")
+		chain_info <- get_bayes_chain_info(x)
+		cat("Number of chains                 : ", chain_info$chains,"\n", sep="")
+		cat("Number of warmup draws per chain : ", chain_info$warmup,"\n", sep="")
+		cat("Total post-warmup sample         : ", chain_info$total,"\n", sep="")
 	}
 	tmpH <- floor(x$time.taken/60^2)
 	tmpM <- floor((x$time.taken-tmpH*60^2)/60)
@@ -223,16 +227,17 @@ print.summary.mdcev <- function(x,...){
 	print(mean_consumption )
 	cat("\n")
 
-	#	cat("\nPsi specification:\n")
-	#	cat(paste(x$psi_formula, sep = "\n", collapse = "\n"), "\n", sep = "")
-
 	if (x$n_classes > 1){
 		cat("\nClass average probabilities:\n")
 		print(round(colMeans(x[["class_probabilities"]]),2))
 	}
 
 	cat("Parameter estimates -------------------------------- ","\n")
-	if(nrow(x$CoefTable)>options("max.print")) options(max.print=nrow(x$CoefTable)+100)
+	if(nrow(x$CoefTable) > getOption("max.print")) {
+		old_max_print <- getOption("max.print")
+		on.exit(options(max.print = old_max_print), add = TRUE)
+		options(max.print = nrow(x$CoefTable) + 100)
+	}
 	print(x$CoefTable)
 	if(x$stan_data$fixed_scale1 == 1)
 		cat("Note: Scale parameter fixed to 1.",'\n')
@@ -275,7 +280,5 @@ coef.mdcev <- function(object, ...){
 	# first remove the fixed coefficients if required
 	result$theta <- NULL
 	result$sum_log_lik <- NULL
-	ncoefs <- names(result)
-	selcoef <- 1:length(result)
-	result[selcoef]
+	result
 }

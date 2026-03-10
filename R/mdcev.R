@@ -88,7 +88,8 @@
 #' mdcev_est <- mdcev( ~ 0,
 #' data = data_rec,
 #' model = "hybrid0",
-#' algorithm = "MLE")
+#' algorithm = "MLE",
+#' backend = "rstan")
 #'}
 mdcev <- function(formula = NULL, data,
 				 weights = NULL,
@@ -160,7 +161,7 @@ mdcev <- function(formula = NULL, data,
 	if(algorithm == "Bayes" || std_errors == "deltamethod")
 		n_draws <- 0
 
-		# Put model options in a list
+	# Put model options in a list
 	mle_options <- list(initial.parameters = initial.parameters,
 						seed = seed,
 						max_iterations = max_iterations,
@@ -180,7 +181,7 @@ mdcev <- function(formula = NULL, data,
 						jacobian_analytical_grad = jacobian_analytical_grad,
 						flat_priors = flat_priors,
 						prior_psi_sd = prior_psi_sd,
-						pior_phi_sd = prior_phi_sd,
+						prior_phi_sd = prior_phi_sd,
 						prior_gamma_sd = prior_gamma_sd,
 						prior_alpha_shape = prior_alpha_shape,
 						prior_scale_sd = prior_scale_sd,
@@ -226,17 +227,11 @@ mdcev <- function(formula = NULL, data,
 							   parms_info,
 							   ...)
 
-#		result[["stan_fit"]][["theta_tilde"]] <- NULL
-
-#		if(length(names(result$est_pars)) == 0)
-#			stop("Hessian matrix is not positive definite")
-
 	}
 	end.time <- proc.time()
 
 	result$parms_info <- parms_info
 	result$stan_data <- stan_data
-	result$algorithm <- algorithm
 	result$random_parameters <- random_parameters
 	result$formula <- formula
 	result$n_classes <- n_classes
@@ -255,8 +250,8 @@ mdcev <- function(formula = NULL, data,
 		result$bic <- -2 * result$log.likelihood + log(result$effective.sample.size) * parms_info$n_vars$n_parms_total
 	}
 
-result <- structure(result,
-					class = "mdcev")
+	result <- structure(result,
+						class = "mdcev")
 
-return(result)
+	return(result)
 }

@@ -14,8 +14,24 @@ CreateBlankPolicies(npols, model, price_change_only = TRUE)
 \item{price_change_only}{Logical value for whether to include policy changes to dat_psi. Defaults to TRUE.
 TRUE implies that only price changes are used in simulation.}
 }
+\value{
+A named list with four elements:
+\describe{
+  \item{price_p}{A list of \code{npols} numeric vectors, each of length \eqn{J+1}
+    (number of non-numeraire alternatives plus the numeraire), initialised to zero.
+    Modify these vectors to specify proportional price changes for each policy.}
+  \item{dat_psi_p}{If \code{price_change_only = FALSE} and the model has psi variables,
+    a list of \code{npols} matrices copied from the estimated model's psi covariate data
+    (one row per individual-alternative combination). \code{NULL} otherwise.}
+  \item{dat_phi_p}{If \code{price_change_only = FALSE} and the model is a \code{kt_ee}
+    specification with phi variables, a list of \code{npols} matrices copied from the
+    estimated model's phi covariate data. \code{NULL} otherwise.}
+  \item{price_change_only}{Logical; the value of the \code{price_change_only} argument,
+    retained for use by \code{mdcev.sim()}.}
+}
+}
 \description{
-Create 'zero effect' policies that can be modified
+Create 'zero effect' policies that can then be modified by the user
 }
 \examples{
 \donttest{
@@ -24,7 +40,7 @@ data_rec <- mdcev.data(data_rec, subset = id <= 500, id.var = "id",
 
 mdcev_est <- mdcev( ~ 0, data = data_rec,
                model = "hybrid0", algorithm = "MLE",
-               std_errors = "mvn")
+               std_errors = "mvn", backend = "rstan")
 CreateBlankPolicies(npols = 2, mdcev_est)
 }
 }
