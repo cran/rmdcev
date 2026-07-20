@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>rmdcev vs Apollo: Parameter Recovery and Timing Benchmark</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">rmdcev vs Apollo: Parameter Recovery and
+Timing Benchmark</h1>
+
+
+
+<p>This vignette compares <strong>rmdcev</strong> and
+<strong>apollo</strong> on two dimensions:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Parameter recovery</strong> — do both packages converge to
+the same estimates on synthetic data?</li>
+<li><strong>Timing</strong> — how does wall-clock time scale with sample
+size (<span class="math inline">\(n\)</span>) and number of alternatives
+(<span class="math inline">\(J\)</span>)?</li>
+</ol>
+<p>Apollo must be installed separately
+(<code>install.packages(&quot;apollo&quot;)</code>). All chunks use
+<code>eval = FALSE</code>; run the script interactively to reproduce the
+results.</p>
+<div id="setup" class="section level2">
+<h2>Setup</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(rmdcev)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(apollo)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="fu">library</span>(bench)      <span class="co"># for timing; install.packages(&quot;bench&quot;) if needed</span></span></code></pre></div>
+<hr />
+</div>
+<div id="helper-functions" class="section level2">
+<h2>Helper functions</h2>
+<div id="wide-format-conversion-for-apollo" class="section level3">
+<h3>Wide-format conversion for Apollo</h3>
+<p>Apollo requires one row per individual (wide format). This function
+converts the long-format output of <code>GenerateMDCEVData()</code> to
+the wide format Apollo expects, and computes the numeraire quantity
+<span class="math inline">\(x_0 = \text{income} - \sum_j p_j
+x_j\)</span>.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>to_wide <span class="ot">&lt;-</span> <span class="cf">function</span>(data_long, nalts) {</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  data_long <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(data_long)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="co"># Individual-level covariates (b-cols that don&#39;t vary within id)</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="co"># b1..b_npsi_j are alt-specific; remaining b-cols are individual-specific</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  all_b  <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;^b[0-9]&quot;</span>, <span class="fu">names</span>(data_long), <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="co"># detect individual-specific cols: same value for all rows of an id</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  ind_b  <span class="ot">&lt;-</span> all_b[<span class="fu">sapply</span>(all_b, <span class="cf">function</span>(v) {</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>    <span class="fu">all</span>(<span class="fu">tapply</span>(data_long[[v]], data_long<span class="sc">$</span>id, <span class="cf">function</span>(x) <span class="fu">length</span>(<span class="fu">unique</span>(x)) <span class="sc">==</span> <span class="dv">1</span>))</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  })]</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  ind_vars <span class="ot">&lt;-</span> data_long <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(id, income, <span class="fu">across</span>(<span class="fu">all_of</span>(ind_b)))</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>  alt_vars <span class="ot">&lt;-</span> data_long <span class="sc">%&gt;%</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>    <span class="fu">select</span>(id, alt, quant, price, <span class="fu">all_of</span>(<span class="fu">setdiff</span>(all_b, ind_b))) <span class="sc">%&gt;%</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>    <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> alt, <span class="at">values_from =</span> <span class="fu">c</span>(quant, price, <span class="fu">setdiff</span>(all_b, ind_b)))</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>  db <span class="ot">&lt;-</span> <span class="fu">left_join</span>(ind_vars, alt_vars, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>  <span class="co"># Numeraire quantity</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>  pj_xj <span class="ot">&lt;-</span> <span class="fu">Reduce</span>(<span class="st">&quot;+&quot;</span>, <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span>nalts, <span class="cf">function</span>(j) {</span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>    db[[<span class="fu">paste0</span>(<span class="st">&quot;price_&quot;</span>, j)]] <span class="sc">*</span> db[[<span class="fu">paste0</span>(<span class="st">&quot;quant_&quot;</span>, j)]]</span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>  }))</span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>  db<span class="sc">$</span>quant_num <span class="ot">&lt;-</span> db<span class="sc">$</span>income <span class="sc">-</span> pj_xj</span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>  db</span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>}</span></code></pre></div>
+</div>
+<div id="apollo-probability-function-factory" class="section level3">
+<h3>Apollo probability function factory</h3>
+<p>Returns a <code>apollo_probabilities</code> closure for the
+<code>hybrid0</code> or <code>gamma</code> model with <code>nalts</code>
+non-numeraire alternatives, <code>npsi_j</code> alt-varying psi
+covariates and one individual-level psi covariate
+(<code>b_ind</code>).</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>make_apollo_prob <span class="ot">&lt;-</span> <span class="cf">function</span>(nalts, <span class="at">model =</span> <span class="fu">c</span>(<span class="st">&quot;hybrid0&quot;</span>, <span class="st">&quot;gamma&quot;</span>),</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>                              <span class="at">npsi_j =</span> <span class="dv">1</span>, <span class="at">ind_col =</span> <span class="st">&quot;b2&quot;</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  model <span class="ot">&lt;-</span> <span class="fu">match.arg</span>(model)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  alt_names <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, <span class="dv">1</span><span class="sc">:</span>nalts)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  all_names <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;outside&quot;</span>, alt_names)</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="cf">function</span>(apollo_beta, apollo_inputs, <span class="at">functionality =</span> <span class="st">&quot;estimate&quot;</span>) {</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>    <span class="fu">apollo_attach</span>(apollo_beta, apollo_inputs)</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>    <span class="fu">on.exit</span>(<span class="fu">apollo_detach</span>(apollo_beta, apollo_inputs))</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>    P <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>    <span class="co"># Utility for each non-numeraire alternative</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>    V <span class="ot">&lt;-</span> <span class="fu">setNames</span>(<span class="fu">vector</span>(<span class="st">&quot;list&quot;</span>, nalts <span class="sc">+</span> <span class="dv">1</span>), all_names)</span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>    V[[<span class="st">&quot;outside&quot;</span>]] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>    <span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq_len</span>(nalts)) {</span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>      vj <span class="ot">&lt;-</span> <span class="fu">get</span>(ind_col) <span class="sc">*</span> psi_ind   <span class="co"># individual-specific component</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>      <span class="cf">for</span> (k <span class="cf">in</span> <span class="fu">seq_len</span>(npsi_j)) {</span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>        vj <span class="ot">&lt;-</span> vj <span class="sc">+</span> <span class="fu">get</span>(<span class="fu">paste0</span>(<span class="st">&quot;b&quot;</span>, k, <span class="st">&quot;_&quot;</span>, j)) <span class="sc">*</span> <span class="fu">get</span>(<span class="fu">paste0</span>(<span class="st">&quot;psi_j&quot;</span>, k))</span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a>      }</span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a>      V[[<span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, j)]] <span class="ot">&lt;-</span> vj</span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a>    }</span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a>    <span class="co"># Alpha: hybrid0 = 0 for all; gamma = free for outside, 0 for others</span></span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a>    alpha_out <span class="ot">&lt;-</span> <span class="cf">if</span> (model <span class="sc">==</span> <span class="st">&quot;gamma&quot;</span>) <span class="fu">exp</span>(ln_alpha_out) <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(ln_alpha_out)) <span class="cf">else</span> <span class="dv">0</span></span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a>    alpha <span class="ot">&lt;-</span> <span class="fu">setNames</span>(</span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a>      <span class="fu">c</span>(<span class="fu">list</span>(alpha_out), <span class="fu">lapply</span>(<span class="fu">seq_len</span>(nalts), <span class="cf">function</span>(j) <span class="dv">0</span>)),</span>
+<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a>      all_names</span>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a>    )</span>
+<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a>    gamma <span class="ot">&lt;-</span> <span class="fu">setNames</span>(</span>
+<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a>      <span class="fu">c</span>(<span class="fu">list</span>(<span class="dv">1</span>), <span class="fu">lapply</span>(<span class="fu">seq_len</span>(nalts), <span class="cf">function</span>(j) <span class="fu">exp</span>(<span class="fu">get</span>(<span class="fu">paste0</span>(<span class="st">&quot;ln_g&quot;</span>, j))))),</span>
+<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a>      all_names</span>
+<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a>    )</span>
+<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a></span>
+<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a>    sigma <span class="ot">&lt;-</span> <span class="fu">exp</span>(ln_sigma)</span>
+<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a></span>
+<span id="cb3-37"><a href="#cb3-37" tabindex="-1"></a>    cChoice <span class="ot">&lt;-</span> <span class="fu">setNames</span>(</span>
+<span id="cb3-38"><a href="#cb3-38" tabindex="-1"></a>      <span class="fu">c</span>(<span class="fu">list</span>(quant_num), <span class="fu">lapply</span>(<span class="fu">seq_len</span>(nalts), <span class="cf">function</span>(j) <span class="fu">get</span>(<span class="fu">paste0</span>(<span class="st">&quot;quant_&quot;</span>, j)))),</span>
+<span id="cb3-39"><a href="#cb3-39" tabindex="-1"></a>      all_names</span>
+<span id="cb3-40"><a href="#cb3-40" tabindex="-1"></a>    )</span>
+<span id="cb3-41"><a href="#cb3-41" tabindex="-1"></a>    cost <span class="ot">&lt;-</span> <span class="fu">setNames</span>(</span>
+<span id="cb3-42"><a href="#cb3-42" tabindex="-1"></a>      <span class="fu">c</span>(<span class="fu">list</span>(<span class="dv">1</span>), <span class="fu">lapply</span>(<span class="fu">seq_len</span>(nalts), <span class="cf">function</span>(j) <span class="fu">get</span>(<span class="fu">paste0</span>(<span class="st">&quot;price_&quot;</span>, j)))),</span>
+<span id="cb3-43"><a href="#cb3-43" tabindex="-1"></a>      all_names</span>
+<span id="cb3-44"><a href="#cb3-44" tabindex="-1"></a>    )</span>
+<span id="cb3-45"><a href="#cb3-45" tabindex="-1"></a>    avail <span class="ot">&lt;-</span> <span class="fu">setNames</span>(</span>
+<span id="cb3-46"><a href="#cb3-46" tabindex="-1"></a>      <span class="fu">c</span>(<span class="fu">list</span>(<span class="dv">1</span>), <span class="fu">lapply</span>(<span class="fu">seq_len</span>(nalts), <span class="cf">function</span>(j) <span class="dv">1</span>)),</span>
+<span id="cb3-47"><a href="#cb3-47" tabindex="-1"></a>      all_names</span>
+<span id="cb3-48"><a href="#cb3-48" tabindex="-1"></a>    )</span>
+<span id="cb3-49"><a href="#cb3-49" tabindex="-1"></a></span>
+<span id="cb3-50"><a href="#cb3-50" tabindex="-1"></a>    mdcev_settings <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb3-51"><a href="#cb3-51" tabindex="-1"></a>      <span class="at">alternatives     =</span> all_names,</span>
+<span id="cb3-52"><a href="#cb3-52" tabindex="-1"></a>      <span class="at">budget           =</span> income,</span>
+<span id="cb3-53"><a href="#cb3-53" tabindex="-1"></a>      <span class="at">V                =</span> V,</span>
+<span id="cb3-54"><a href="#cb3-54" tabindex="-1"></a>      <span class="at">alpha            =</span> alpha,</span>
+<span id="cb3-55"><a href="#cb3-55" tabindex="-1"></a>      <span class="at">gamma            =</span> gamma,</span>
+<span id="cb3-56"><a href="#cb3-56" tabindex="-1"></a>      <span class="at">sigma            =</span> sigma,</span>
+<span id="cb3-57"><a href="#cb3-57" tabindex="-1"></a>      <span class="at">continuousChoice =</span> cChoice,</span>
+<span id="cb3-58"><a href="#cb3-58" tabindex="-1"></a>      <span class="at">cost             =</span> cost,</span>
+<span id="cb3-59"><a href="#cb3-59" tabindex="-1"></a>      <span class="at">avail            =</span> avail</span>
+<span id="cb3-60"><a href="#cb3-60" tabindex="-1"></a>    )</span>
+<span id="cb3-61"><a href="#cb3-61" tabindex="-1"></a></span>
+<span id="cb3-62"><a href="#cb3-62" tabindex="-1"></a>    P[[<span class="st">&quot;model&quot;</span>]] <span class="ot">&lt;-</span> <span class="fu">apollo_mdcev</span>(mdcev_settings, functionality)</span>
+<span id="cb3-63"><a href="#cb3-63" tabindex="-1"></a>    P <span class="ot">&lt;-</span> <span class="fu">apollo_prepareProb</span>(P, apollo_inputs, functionality)</span>
+<span id="cb3-64"><a href="#cb3-64" tabindex="-1"></a>    <span class="fu">return</span>(P)</span>
+<span id="cb3-65"><a href="#cb3-65" tabindex="-1"></a>  }</span>
+<span id="cb3-66"><a href="#cb3-66" tabindex="-1"></a>}</span></code></pre></div>
+</div>
+<div id="apollo-starting-values-vector" class="section level3">
+<h3>Apollo starting-values vector</h3>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>make_apollo_beta <span class="ot">&lt;-</span> <span class="cf">function</span>(nalts, <span class="at">model =</span> <span class="fu">c</span>(<span class="st">&quot;hybrid0&quot;</span>, <span class="st">&quot;gamma&quot;</span>), <span class="at">npsi_j =</span> <span class="dv">1</span>) {</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  model <span class="ot">&lt;-</span> <span class="fu">match.arg</span>(model)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  betas <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">psi_ind =</span> <span class="dv">0</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="cf">for</span> (k <span class="cf">in</span> <span class="fu">seq_len</span>(npsi_j)) betas[<span class="fu">paste0</span>(<span class="st">&quot;psi_j&quot;</span>, k)] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq_len</span>(nalts)) betas[<span class="fu">paste0</span>(<span class="st">&quot;ln_g&quot;</span>, j)] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="cf">if</span> (model <span class="sc">==</span> <span class="st">&quot;gamma&quot;</span>) betas[<span class="st">&quot;ln_alpha_out&quot;</span>] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  betas[<span class="st">&quot;ln_sigma&quot;</span>] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  betas</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>}</span></code></pre></div>
+</div>
+<div id="fit-both-packages-return-comparison-table" class="section level3">
+<h3>Fit both packages, return comparison table</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>fit_both <span class="ot">&lt;-</span> <span class="cf">function</span>(sim, <span class="at">model =</span> <span class="st">&quot;hybrid0&quot;</span>, <span class="at">npsi_j =</span> <span class="dv">1</span>, <span class="at">ind_col =</span> <span class="st">&quot;b2&quot;</span>) {</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  nalts <span class="ot">&lt;-</span> sim<span class="sc">$</span>data <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(alt) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>()</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="co"># ---- rmdcev ----</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  rmdcev_formula <span class="ot">&lt;-</span> <span class="fu">as.formula</span>(<span class="fu">paste0</span>(</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>    <span class="st">&quot;~ &quot;</span>, <span class="fu">paste</span>(<span class="fu">paste0</span>(<span class="st">&quot;b&quot;</span>, <span class="dv">1</span><span class="sc">:</span>(npsi_j <span class="sc">+</span> <span class="dv">1</span>)), <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  ))</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  t_rmdcev <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>    fit_r <span class="ot">&lt;-</span> <span class="fu">mdcev</span>(</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>      <span class="at">formula          =</span> rmdcev_formula,</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>      <span class="at">data             =</span> sim<span class="sc">$</span>data,</span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>      <span class="at">psi_ascs         =</span> <span class="dv">0</span>,</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>      <span class="at">model            =</span> model,</span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>      <span class="at">algorithm        =</span> <span class="st">&quot;MLE&quot;</span>,</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>      <span class="at">print_iterations =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>      <span class="at">backend          =</span> <span class="st">&quot;rstan&quot;</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>    )</span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a>  )</span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>  <span class="co"># ---- Apollo ----</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a>  database <span class="ot">&lt;-</span> <span class="fu">to_wide</span>(sim<span class="sc">$</span>data, nalts)</span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a>  db_col   <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;b&quot;</span>, npsi_j <span class="sc">+</span> <span class="dv">1</span>)   <span class="co"># individual-specific column</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a></span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a>  apollo_control <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a>    <span class="at">modelName       =</span> <span class="fu">paste0</span>(<span class="st">&quot;apollo_&quot;</span>, model),</span>
+<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a>    <span class="at">modelDescr      =</span> <span class="fu">paste0</span>(<span class="st">&quot;Apollo &quot;</span>, model),</span>
+<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a>    <span class="at">indivID         =</span> <span class="st">&quot;id&quot;</span>,</span>
+<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a>    <span class="at">outputDirectory =</span> <span class="fu">tempdir</span>(),</span>
+<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a>    <span class="at">nCores          =</span> <span class="dv">1</span></span>
+<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a>  )</span>
+<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a>  apollo_beta  <span class="ot">&lt;-</span> <span class="fu">make_apollo_beta</span>(nalts, model, npsi_j)</span>
+<span id="cb5-32"><a href="#cb5-32" tabindex="-1"></a>  apollo_fixed <span class="ot">&lt;-</span> <span class="fu">character</span>(<span class="dv">0</span>)</span>
+<span id="cb5-33"><a href="#cb5-33" tabindex="-1"></a></span>
+<span id="cb5-34"><a href="#cb5-34" tabindex="-1"></a>  apollo_inputs <span class="ot">&lt;-</span> <span class="fu">apollo_validateInputs</span>(</span>
+<span id="cb5-35"><a href="#cb5-35" tabindex="-1"></a>    <span class="at">apollo_beta    =</span> apollo_beta,</span>
+<span id="cb5-36"><a href="#cb5-36" tabindex="-1"></a>    <span class="at">apollo_fixed   =</span> apollo_fixed,</span>
+<span id="cb5-37"><a href="#cb5-37" tabindex="-1"></a>    <span class="at">database       =</span> database,</span>
+<span id="cb5-38"><a href="#cb5-38" tabindex="-1"></a>    <span class="at">apollo_control =</span> apollo_control</span>
+<span id="cb5-39"><a href="#cb5-39" tabindex="-1"></a>  )</span>
+<span id="cb5-40"><a href="#cb5-40" tabindex="-1"></a></span>
+<span id="cb5-41"><a href="#cb5-41" tabindex="-1"></a>  apollo_prob <span class="ot">&lt;-</span> <span class="fu">make_apollo_prob</span>(nalts, model, npsi_j, db_col)</span>
+<span id="cb5-42"><a href="#cb5-42" tabindex="-1"></a></span>
+<span id="cb5-43"><a href="#cb5-43" tabindex="-1"></a>  t_apollo <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb5-44"><a href="#cb5-44" tabindex="-1"></a>    fit_a <span class="ot">&lt;-</span> <span class="fu">apollo_estimate</span>(</span>
+<span id="cb5-45"><a href="#cb5-45" tabindex="-1"></a>      apollo_beta, apollo_fixed, apollo_prob, apollo_inputs,</span>
+<span id="cb5-46"><a href="#cb5-46" tabindex="-1"></a>      <span class="at">estimate_settings =</span> <span class="fu">list</span>(<span class="at">writeIter =</span> <span class="cn">FALSE</span>, <span class="at">hessianRoutine =</span> <span class="st">&quot;none&quot;</span>,</span>
+<span id="cb5-47"><a href="#cb5-47" tabindex="-1"></a>                               <span class="at">printLevel =</span> <span class="dv">0</span><span class="dt">L</span>)</span>
+<span id="cb5-48"><a href="#cb5-48" tabindex="-1"></a>    )</span>
+<span id="cb5-49"><a href="#cb5-49" tabindex="-1"></a>  )</span>
+<span id="cb5-50"><a href="#cb5-50" tabindex="-1"></a></span>
+<span id="cb5-51"><a href="#cb5-51" tabindex="-1"></a>  <span class="co"># ---- Extract estimates ----</span></span>
+<span id="cb5-52"><a href="#cb5-52" tabindex="-1"></a>  r_psi   <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(fit_r<span class="sc">$</span>stan_fit<span class="sc">$</span>par<span class="sc">$</span>psi)</span>
+<span id="cb5-53"><a href="#cb5-53" tabindex="-1"></a>  r_gamma <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(fit_r<span class="sc">$</span>stan_fit<span class="sc">$</span>par<span class="sc">$</span>gamma)</span>
+<span id="cb5-54"><a href="#cb5-54" tabindex="-1"></a>  r_scale <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(fit_r<span class="sc">$</span>stan_fit<span class="sc">$</span>par<span class="sc">$</span>scale)</span>
+<span id="cb5-55"><a href="#cb5-55" tabindex="-1"></a></span>
+<span id="cb5-56"><a href="#cb5-56" tabindex="-1"></a>  a_est   <span class="ot">&lt;-</span> fit_a<span class="sc">$</span>estimate</span>
+<span id="cb5-57"><a href="#cb5-57" tabindex="-1"></a>  a_gamma <span class="ot">&lt;-</span> <span class="fu">exp</span>(a_est[<span class="fu">grep</span>(<span class="st">&quot;^ln_g&quot;</span>, <span class="fu">names</span>(a_est))])</span>
+<span id="cb5-58"><a href="#cb5-58" tabindex="-1"></a>  a_scale <span class="ot">&lt;-</span> <span class="fu">exp</span>(a_est[<span class="st">&quot;ln_sigma&quot;</span>])</span>
+<span id="cb5-59"><a href="#cb5-59" tabindex="-1"></a></span>
+<span id="cb5-60"><a href="#cb5-60" tabindex="-1"></a>  <span class="co"># Map column names: psi_j1 = alt-varying, psi_ind = individual-varying</span></span>
+<span id="cb5-61"><a href="#cb5-61" tabindex="-1"></a>  a_psi_j   <span class="ot">&lt;-</span> a_est[<span class="fu">grep</span>(<span class="st">&quot;^psi_j&quot;</span>, <span class="fu">names</span>(a_est))]</span>
+<span id="cb5-62"><a href="#cb5-62" tabindex="-1"></a>  a_psi_ind <span class="ot">&lt;-</span> a_est[<span class="st">&quot;psi_ind&quot;</span>]</span>
+<span id="cb5-63"><a href="#cb5-63" tabindex="-1"></a>  a_psi     <span class="ot">&lt;-</span> <span class="fu">c</span>(a_psi_j, a_psi_ind)</span>
+<span id="cb5-64"><a href="#cb5-64" tabindex="-1"></a></span>
+<span id="cb5-65"><a href="#cb5-65" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb5-66"><a href="#cb5-66" tabindex="-1"></a>    <span class="at">ll      =</span> <span class="fu">c</span>(<span class="at">rmdcev =</span> fit_r<span class="sc">$</span>log.likelihood, <span class="at">apollo =</span> fit_a<span class="sc">$</span>LLout),</span>
+<span id="cb5-67"><a href="#cb5-67" tabindex="-1"></a>    <span class="at">psi     =</span> <span class="fu">rbind</span>(<span class="at">rmdcev =</span> r_psi, <span class="at">apollo =</span> a_psi),</span>
+<span id="cb5-68"><a href="#cb5-68" tabindex="-1"></a>    <span class="at">gamma   =</span> <span class="fu">rbind</span>(<span class="at">rmdcev =</span> r_gamma[<span class="dv">1</span><span class="sc">:</span><span class="fu">min</span>(<span class="dv">5</span>, nalts)],</span>
+<span id="cb5-69"><a href="#cb5-69" tabindex="-1"></a>                    <span class="at">apollo =</span> a_gamma[<span class="dv">1</span><span class="sc">:</span><span class="fu">min</span>(<span class="dv">5</span>, nalts)]),</span>
+<span id="cb5-70"><a href="#cb5-70" tabindex="-1"></a>    <span class="at">scale   =</span> <span class="fu">c</span>(<span class="at">rmdcev =</span> r_scale, <span class="at">apollo =</span> <span class="fu">as.numeric</span>(a_scale)),</span>
+<span id="cb5-71"><a href="#cb5-71" tabindex="-1"></a>    <span class="at">time_s  =</span> <span class="fu">c</span>(<span class="at">rmdcev =</span> t_rmdcev[<span class="st">&quot;elapsed&quot;</span>], <span class="at">apollo =</span> t_apollo[<span class="st">&quot;elapsed&quot;</span>])</span>
+<span id="cb5-72"><a href="#cb5-72" tabindex="-1"></a>  )</span>
+<span id="cb5-73"><a href="#cb5-73" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+</div>
+</div>
+<div id="parameter-recovery" class="section level2">
+<h2>1 · Parameter recovery</h2>
+<p>We generate data from a known <strong>hybrid0</strong> DGP with <span class="math inline">\(n = 500\)</span>, <span class="math inline">\(J =
+5\)</span>, verify that both packages recover the true parameters, and
+that their log-likelihoods agree.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>true_psi_j   <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>true_psi_ind <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fl">1.5</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>true_gamma   <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">5</span>, <span class="dv">5</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>true_scale   <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>sim_h0 <span class="ot">&lt;-</span> <span class="fu">GenerateMDCEVData</span>(</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  <span class="at">model       =</span> <span class="st">&quot;hybrid0&quot;</span>,</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">nobs        =</span> <span class="dv">500</span>,</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="at">nalts       =</span> <span class="dv">5</span>,</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="at">psi_j_parms =</span> true_psi_j,</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  <span class="at">psi_i_parms =</span> true_psi_ind,</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>  <span class="at">gamma_parms =</span> true_gamma,</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>  <span class="at">scale_parms =</span> true_scale</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>)</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>cmp_h0 <span class="ot">&lt;-</span> <span class="fu">fit_both</span>(sim_h0, <span class="at">model =</span> <span class="st">&quot;hybrid0&quot;</span>, <span class="at">npsi_j =</span> <span class="dv">1</span>)</span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;=== hybrid0 parameter comparison ===</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;LL:  rmdcev = %.2f   apollo = %.2f</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>            cmp_h0<span class="sc">$</span>ll[<span class="st">&quot;rmdcev&quot;</span>], cmp_h0<span class="sc">$</span>ll[<span class="st">&quot;apollo&quot;</span>]))</span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;     LL difference = %.6f</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a>            <span class="fu">abs</span>(cmp_h0<span class="sc">$</span>ll[<span class="st">&quot;rmdcev&quot;</span>] <span class="sc">-</span> cmp_h0<span class="sc">$</span>ll[<span class="st">&quot;apollo&quot;</span>])))</span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Psi (true: psi_j=0.5, psi_ind=-1.5)</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">round</span>(cmp_h0<span class="sc">$</span>psi, <span class="dv">4</span>))</span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Gamma (true: all 5)</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">round</span>(cmp_h0<span class="sc">$</span>gamma, <span class="dv">4</span>))</span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a></span>
+<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Scale (true: 1.0):  rmdcev=%.4f  apollo=%.4f</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a>            cmp_h0<span class="sc">$</span>scale[<span class="st">&quot;rmdcev&quot;</span>], cmp_h0<span class="sc">$</span>scale[<span class="st">&quot;apollo&quot;</span>]))</span></code></pre></div>
+<p>Repeat for the <strong>gamma</strong> model (alpha for numeraire is
+free):</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>true_alpha <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>sim_g <span class="ot">&lt;-</span> <span class="fu">GenerateMDCEVData</span>(</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="at">model        =</span> <span class="st">&quot;gamma&quot;</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="at">nobs         =</span> <span class="dv">500</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="at">nalts        =</span> <span class="dv">5</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="at">psi_j_parms  =</span> true_psi_j,</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="at">psi_i_parms  =</span> true_psi_ind,</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  <span class="at">gamma_parms  =</span> true_gamma,</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  <span class="at">alpha_parms  =</span> true_alpha,</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>  <span class="at">scale_parms  =</span> true_scale</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>)</span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>cmp_g <span class="ot">&lt;-</span> <span class="fu">fit_both</span>(sim_g, <span class="at">model =</span> <span class="st">&quot;gamma&quot;</span>, <span class="at">npsi_j =</span> <span class="dv">1</span>)</span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;=== gamma parameter comparison ===</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;LL:  rmdcev = %.2f   apollo = %.2f</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a>            cmp_g<span class="sc">$</span>ll[<span class="st">&quot;rmdcev&quot;</span>], cmp_g<span class="sc">$</span>ll[<span class="st">&quot;apollo&quot;</span>]))</span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;     LL difference = %.6f</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>            <span class="fu">abs</span>(cmp_g<span class="sc">$</span>ll[<span class="st">&quot;rmdcev&quot;</span>] <span class="sc">-</span> cmp_g<span class="sc">$</span>ll[<span class="st">&quot;apollo&quot;</span>])))</span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a></span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Psi:</span><span class="sc">\n</span><span class="st">&quot;</span>); <span class="fu">print</span>(<span class="fu">round</span>(cmp_g<span class="sc">$</span>psi, <span class="dv">4</span>))</span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Gamma (first 5):</span><span class="sc">\n</span><span class="st">&quot;</span>); <span class="fu">print</span>(<span class="fu">round</span>(cmp_g<span class="sc">$</span>gamma, <span class="dv">4</span>))</span>
+<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Scale: rmdcev=%.4f  apollo=%.4f</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a>            cmp_g<span class="sc">$</span>scale[<span class="st">&quot;rmdcev&quot;</span>], cmp_g<span class="sc">$</span>scale[<span class="st">&quot;apollo&quot;</span>]))</span></code></pre></div>
+<hr />
+</div>
+<div id="timing-benchmark" class="section level2">
+<h2>2 · Timing benchmark</h2>
+<p>We time <strong>MLE estimation</strong> across five (n, J)
+combinations with 3 replicates each. Demand simulation timing uses the
+same grid.</p>
+<div id="a-mle-estimation-timing" class="section level3">
+<h3>2a · MLE estimation timing</h3>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">n    =</span> <span class="fu">c</span>(<span class="dv">500</span>, <span class="dv">1000</span>, <span class="dv">5000</span>),</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">J    =</span> <span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">100</span>),</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">rep  =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span>(n <span class="sc">==</span> <span class="dv">1000</span> <span class="sc">&amp;</span> J <span class="sc">==</span> <span class="dv">100</span>))  <span class="co"># keep n=1000 for J=50 only</span></span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>timing_mle <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="fu">seq_len</span>(<span class="fu">nrow</span>(grid)), <span class="cf">function</span>(i) {</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  n <span class="ot">&lt;-</span> grid<span class="sc">$</span>n[i]; J <span class="ot">&lt;-</span> grid<span class="sc">$</span>J[i]; r <span class="ot">&lt;-</span> grid<span class="sc">$</span>rep[i]</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">set.seed</span>(r <span class="sc">*</span> <span class="dv">100</span> <span class="sc">+</span> i)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  sim <span class="ot">&lt;-</span> <span class="fu">GenerateMDCEVData</span>(</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>    <span class="at">model       =</span> <span class="st">&quot;hybrid0&quot;</span>,</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>    <span class="at">nobs        =</span> n,</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>    <span class="at">nalts       =</span> J,</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>    <span class="at">psi_j_parms =</span> <span class="fl">0.5</span>,</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>    <span class="at">psi_i_parms =</span> <span class="sc">-</span><span class="fl">1.5</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>    <span class="at">gamma_parms =</span> <span class="fu">rep</span>(<span class="dv">5</span>, J),</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>    <span class="at">scale_parms =</span> <span class="fl">1.0</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>  )</span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a>  res <span class="ot">&lt;-</span> <span class="fu">fit_both</span>(sim, <span class="at">model =</span> <span class="st">&quot;hybrid0&quot;</span>, <span class="at">npsi_j =</span> <span class="dv">1</span>)</span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">n=</span>n, <span class="at">J=</span>J, <span class="at">rep=</span>r,</span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a>             <span class="at">rmdcev_s =</span> res<span class="sc">$</span>time_s[<span class="st">&quot;rmdcev&quot;</span>],</span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a>             <span class="at">apollo_s =</span> res<span class="sc">$</span>time_s[<span class="st">&quot;apollo&quot;</span>],</span>
+<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a>             <span class="at">ll_diff  =</span> <span class="fu">abs</span>(res<span class="sc">$</span>ll[<span class="st">&quot;rmdcev&quot;</span>] <span class="sc">-</span> res<span class="sc">$</span>ll[<span class="st">&quot;apollo&quot;</span>]))</span>
+<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a>})</span>
+<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a></span>
+<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a>timing_mle <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, timing_mle)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>summary_mle <span class="ot">&lt;-</span> timing_mle <span class="sc">%&gt;%</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">group_by</span>(n, J) <span class="sc">%&gt;%</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>    <span class="at">rmdcev_mean_s =</span> <span class="fu">round</span>(<span class="fu">mean</span>(rmdcev_s), <span class="dv">1</span>),</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>    <span class="at">apollo_mean_s =</span> <span class="fu">round</span>(<span class="fu">mean</span>(apollo_s), <span class="dv">1</span>),</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>    <span class="at">speedup       =</span> <span class="fu">round</span>(<span class="fu">mean</span>(apollo_s) <span class="sc">/</span> <span class="fu">mean</span>(rmdcev_s), <span class="dv">1</span>),</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>    <span class="at">ll_diff_mean  =</span> <span class="fu">signif</span>(<span class="fu">mean</span>(ll_diff), <span class="dv">3</span>),</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>  )</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;=== MLE estimation timing (seconds, 3 replicates) ===</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="fu">print</span>(summary_mle, <span class="at">n =</span> <span class="cn">Inf</span>)</span></code></pre></div>
+<hr />
+</div>
+</div>
+<div id="demand-simulation-1-price-increase" class="section level2">
+<h2>3 · Demand simulation: 1% price increase</h2>
+<p>We compare predicted demand changes from a 1% cost increase using
+rmdcev’s built-in simulation pipeline and Apollo’s
+<code>apollo_prediction()</code> function.</p>
+<div id="policy-specification" class="section level3">
+<h3>Policy specification</h3>
+<p>The <code>price_p</code> slot in rmdcev takes
+<strong>additive</strong> price changes. For a 1% increase we add <span class="math inline">\(0.01 \times \bar{p}_j\)</span> (1% of the
+cross-individual mean price for each alternative). To ensure identical
+policies, Apollo’s database applies the same constant additive change
+per alternative (<span class="math inline">\(+0.01 \bar{p}_j\)</span>)
+rather than a proportional scale. Apollo’s prediction is then run twice
+— baseline and policy — and the difference gives the demand change.</p>
+</div>
+<div id="a-apollo-apollo_prediction-approach-convergence-check-n500-j5" class="section level3">
+<h3>3a · Apollo <code>apollo_prediction()</code> approach (convergence
+check, n=500, J=5)</h3>
+<p><code>apollo_prediction()</code> does source-code inspection and
+cannot accept factory-generated closures, so we write a concrete
+function for the J=5 convergence check.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co"># Concrete apollo_probabilities for J=5 (used only in this section)</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>apollo_probabilities_j5 <span class="ot">&lt;-</span> <span class="cf">function</span>(apollo_beta, apollo_inputs, <span class="at">functionality =</span> <span class="st">&quot;estimate&quot;</span>) {</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">apollo_attach</span>(apollo_beta, apollo_inputs)</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="fu">on.exit</span>(<span class="fu">apollo_detach</span>(apollo_beta, apollo_inputs))</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>  P <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>  V <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>    <span class="at">outside =</span> <span class="dv">0</span>,</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>    <span class="at">alt1    =</span> psi_ind <span class="sc">*</span> b2 <span class="sc">+</span> psi_j1 <span class="sc">*</span> b1_1,</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>    <span class="at">alt2    =</span> psi_ind <span class="sc">*</span> b2 <span class="sc">+</span> psi_j1 <span class="sc">*</span> b1_2,</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>    <span class="at">alt3    =</span> psi_ind <span class="sc">*</span> b2 <span class="sc">+</span> psi_j1 <span class="sc">*</span> b1_3,</span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a>    <span class="at">alt4    =</span> psi_ind <span class="sc">*</span> b2 <span class="sc">+</span> psi_j1 <span class="sc">*</span> b1_4,</span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a>    <span class="at">alt5    =</span> psi_ind <span class="sc">*</span> b2 <span class="sc">+</span> psi_j1 <span class="sc">*</span> b1_5</span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a>  )</span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a>  mdcev_settings <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a>    <span class="at">alternatives     =</span> <span class="fu">c</span>(<span class="st">&quot;outside&quot;</span>,<span class="st">&quot;alt1&quot;</span>,<span class="st">&quot;alt2&quot;</span>,<span class="st">&quot;alt3&quot;</span>,<span class="st">&quot;alt4&quot;</span>,<span class="st">&quot;alt5&quot;</span>),</span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a>    <span class="at">budget           =</span> income, <span class="at">V =</span> V,</span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a>    <span class="at">alpha            =</span> <span class="fu">list</span>(<span class="at">outside=</span><span class="dv">0</span>, <span class="at">alt1=</span><span class="dv">0</span>, <span class="at">alt2=</span><span class="dv">0</span>, <span class="at">alt3=</span><span class="dv">0</span>, <span class="at">alt4=</span><span class="dv">0</span>, <span class="at">alt5=</span><span class="dv">0</span>),</span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a>    <span class="at">gamma            =</span> <span class="fu">list</span>(<span class="at">outside=</span><span class="dv">1</span>, <span class="at">alt1=</span><span class="fu">exp</span>(ln_g1), <span class="at">alt2=</span><span class="fu">exp</span>(ln_g2), <span class="at">alt3=</span><span class="fu">exp</span>(ln_g3),</span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a>                            <span class="at">alt4=</span><span class="fu">exp</span>(ln_g4), <span class="at">alt5=</span><span class="fu">exp</span>(ln_g5)),</span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a>    <span class="at">sigma            =</span> <span class="fu">exp</span>(ln_sigma),</span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a>    <span class="at">continuousChoice =</span> <span class="fu">list</span>(<span class="at">outside=</span>quant_num, <span class="at">alt1=</span>quant_1, <span class="at">alt2=</span>quant_2,</span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a>                            <span class="at">alt3=</span>quant_3, <span class="at">alt4=</span>quant_4, <span class="at">alt5=</span>quant_5),</span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a>    <span class="at">cost             =</span> <span class="fu">list</span>(<span class="at">outside=</span><span class="dv">1</span>, <span class="at">alt1=</span>price_1, <span class="at">alt2=</span>price_2,</span>
+<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a>                            <span class="at">alt3=</span>price_3, <span class="at">alt4=</span>price_4, <span class="at">alt5=</span>price_5),</span>
+<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a>    <span class="at">avail            =</span> <span class="fu">list</span>(<span class="at">outside=</span><span class="dv">1</span>, <span class="at">alt1=</span><span class="dv">1</span>, <span class="at">alt2=</span><span class="dv">1</span>, <span class="at">alt3=</span><span class="dv">1</span>, <span class="at">alt4=</span><span class="dv">1</span>, <span class="at">alt5=</span><span class="dv">1</span>)</span>
+<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a>  )</span>
+<span id="cb11-28"><a href="#cb11-28" tabindex="-1"></a>  P[[<span class="st">&quot;model&quot;</span>]] <span class="ot">&lt;-</span> <span class="fu">apollo_mdcev</span>(mdcev_settings, functionality)</span>
+<span id="cb11-29"><a href="#cb11-29" tabindex="-1"></a>  P <span class="ot">&lt;-</span> <span class="fu">apollo_prepareProb</span>(P, apollo_inputs, functionality)</span>
+<span id="cb11-30"><a href="#cb11-30" tabindex="-1"></a>  <span class="fu">return</span>(P)</span>
+<span id="cb11-31"><a href="#cb11-31" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>J5   <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>n500 <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>sim5 <span class="ot">&lt;-</span> <span class="fu">GenerateMDCEVData</span>(</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">model       =</span> <span class="st">&quot;hybrid0&quot;</span>,</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">nobs        =</span> n500,</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="at">nalts       =</span> J5,</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>  <span class="at">psi_j_parms =</span> <span class="fl">0.5</span>,</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>  <span class="at">psi_i_parms =</span> <span class="sc">-</span><span class="fl">1.5</span>,</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>  <span class="at">gamma_parms =</span> <span class="fu">rep</span>(<span class="dv">5</span>, J5),</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>  <span class="at">scale_parms =</span> <span class="fl">1.0</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>)</span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co"># ── Fit both packages ──────────────────────────────────────────────────────</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>fit_r5 <span class="ot">&lt;-</span> <span class="fu">mdcev</span>(</span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>  <span class="at">formula =</span> <span class="sc">~</span> b1 <span class="sc">+</span> b2, <span class="at">data =</span> sim5<span class="sc">$</span>data, <span class="at">psi_ascs =</span> <span class="dv">0</span>,</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a>  <span class="at">model =</span> <span class="st">&quot;hybrid0&quot;</span>, <span class="at">algorithm =</span> <span class="st">&quot;MLE&quot;</span>,</span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a>  <span class="at">print_iterations =</span> <span class="cn">FALSE</span>, <span class="at">backend =</span> <span class="st">&quot;rstan&quot;</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a>)</span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a></span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a>database5 <span class="ot">&lt;-</span> <span class="fu">to_wide</span>(sim5<span class="sc">$</span>data, J5)</span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a>ac5 <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">modelName =</span> <span class="st">&quot;apl_sim5&quot;</span>, <span class="at">modelDescr =</span> <span class="st">&quot;sim&quot;</span>, <span class="at">indivID =</span> <span class="st">&quot;id&quot;</span>,</span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a>            <span class="at">outputDirectory =</span> <span class="fu">tempdir</span>(), <span class="at">nCores =</span> <span class="dv">1</span>)</span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a>ab5 <span class="ot">&lt;-</span> <span class="fu">make_apollo_beta</span>(J5, <span class="st">&quot;hybrid0&quot;</span>, <span class="at">npsi_j =</span> <span class="dv">1</span>)</span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a>ai5 <span class="ot">&lt;-</span> <span class="fu">suppressMessages</span>(</span>
+<span id="cb12-27"><a href="#cb12-27" tabindex="-1"></a>  <span class="fu">apollo_validateInputs</span>(<span class="at">apollo_beta =</span> ab5, <span class="at">apollo_fixed =</span> <span class="fu">character</span>(<span class="dv">0</span>),</span>
+<span id="cb12-28"><a href="#cb12-28" tabindex="-1"></a>                        <span class="at">database =</span> database5, <span class="at">apollo_control =</span> ac5))</span>
+<span id="cb12-29"><a href="#cb12-29" tabindex="-1"></a>fit_a5 <span class="ot">&lt;-</span> <span class="fu">suppressMessages</span>(<span class="fu">suppressWarnings</span>(</span>
+<span id="cb12-30"><a href="#cb12-30" tabindex="-1"></a>  <span class="fu">apollo_estimate</span>(ab5, <span class="fu">character</span>(<span class="dv">0</span>), apollo_probabilities_j5, ai5,</span>
+<span id="cb12-31"><a href="#cb12-31" tabindex="-1"></a>    <span class="at">estimate_settings =</span> <span class="fu">list</span>(<span class="at">writeIter =</span> <span class="cn">FALSE</span>, <span class="at">hessianRoutine =</span> <span class="st">&quot;none&quot;</span>,</span>
+<span id="cb12-32"><a href="#cb12-32" tabindex="-1"></a>                             <span class="at">printLevel =</span> <span class="dv">0</span><span class="dt">L</span>))</span>
+<span id="cb12-33"><a href="#cb12-33" tabindex="-1"></a>))</span>
+<span id="cb12-34"><a href="#cb12-34" tabindex="-1"></a></span>
+<span id="cb12-35"><a href="#cb12-35" tabindex="-1"></a><span class="co"># ── 1% price-change policy ─────────────────────────────────────────────────</span></span>
+<span id="cb12-36"><a href="#cb12-36" tabindex="-1"></a>baseline_prices <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">as.numeric</span>(fit_r5<span class="sc">$</span>stan_data<span class="sc">$</span>price_j), <span class="at">nrow =</span> n500)</span>
+<span id="cb12-37"><a href="#cb12-37" tabindex="-1"></a>price_change    <span class="ot">&lt;-</span> <span class="fl">0.01</span> <span class="sc">*</span> <span class="fu">colMeans</span>(baseline_prices)   <span class="co"># 1% of mean price per alt</span></span>
+<span id="cb12-38"><a href="#cb12-38" tabindex="-1"></a></span>
+<span id="cb12-39"><a href="#cb12-39" tabindex="-1"></a><span class="co"># rmdcev: additive policy vector (0 for numeraire, then per-alt changes)</span></span>
+<span id="cb12-40"><a href="#cb12-40" tabindex="-1"></a>policies5 <span class="ot">&lt;-</span> <span class="fu">CreateBlankPolicies</span>(<span class="at">npols =</span> <span class="dv">2</span>, fit_r5, <span class="at">price_change_only =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb12-41"><a href="#cb12-41" tabindex="-1"></a>policies5<span class="sc">$</span>price_p[[<span class="dv">2</span>]] <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, price_change)</span>
+<span id="cb12-42"><a href="#cb12-42" tabindex="-1"></a></span>
+<span id="cb12-43"><a href="#cb12-43" tabindex="-1"></a>df_sim5 <span class="ot">&lt;-</span> <span class="fu">PrepareSimulationData</span>(fit_r5, policies5, <span class="at">nsims =</span> <span class="dv">1</span>)</span>
+<span id="cb12-44"><a href="#cb12-44" tabindex="-1"></a></span>
+<span id="cb12-45"><a href="#cb12-45" tabindex="-1"></a>t_rmdcev5 <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb12-46"><a href="#cb12-46" tabindex="-1"></a>  demand_r5 <span class="ot">&lt;-</span> <span class="fu">mdcev.sim</span>(</span>
+<span id="cb12-47"><a href="#cb12-47" tabindex="-1"></a>    df_sim5<span class="sc">$</span>df_indiv, <span class="at">df_common =</span> df_sim5<span class="sc">$</span>df_common,</span>
+<span id="cb12-48"><a href="#cb12-48" tabindex="-1"></a>    <span class="at">sim_options =</span> df_sim5<span class="sc">$</span>sim_options,</span>
+<span id="cb12-49"><a href="#cb12-49" tabindex="-1"></a>    <span class="at">cond_err =</span> <span class="dv">0</span>, <span class="at">nerrs =</span> <span class="dv">100</span>, <span class="at">sim_type =</span> <span class="st">&quot;demand&quot;</span></span>
+<span id="cb12-50"><a href="#cb12-50" tabindex="-1"></a>  )</span>
+<span id="cb12-51"><a href="#cb12-51" tabindex="-1"></a>)</span>
+<span id="cb12-52"><a href="#cb12-52" tabindex="-1"></a></span>
+<span id="cb12-53"><a href="#cb12-53" tabindex="-1"></a><span class="co"># Extract mean demand per alt: demand[[indiv]][[sim]][policy, alt_index]</span></span>
+<span id="cb12-54"><a href="#cb12-54" tabindex="-1"></a>mean_demand <span class="ot">&lt;-</span> <span class="cf">function</span>(demand_list, policy_idx, alt_idx) {</span>
+<span id="cb12-55"><a href="#cb12-55" tabindex="-1"></a>  <span class="fu">mean</span>(<span class="fu">sapply</span>(demand_list, <span class="cf">function</span>(ind)</span>
+<span id="cb12-56"><a href="#cb12-56" tabindex="-1"></a>    <span class="fu">mean</span>(<span class="fu">sapply</span>(ind, <span class="cf">function</span>(s) s[policy_idx, alt_idx]))))</span>
+<span id="cb12-57"><a href="#cb12-57" tabindex="-1"></a>}</span>
+<span id="cb12-58"><a href="#cb12-58" tabindex="-1"></a>d_base_r   <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">2</span><span class="sc">:</span>(J5 <span class="sc">+</span> <span class="dv">1</span>), <span class="cf">function</span>(a) <span class="fu">mean_demand</span>(demand_r5, <span class="dv">1</span>, a))</span>
+<span id="cb12-59"><a href="#cb12-59" tabindex="-1"></a>d_policy_r <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">2</span><span class="sc">:</span>(J5 <span class="sc">+</span> <span class="dv">1</span>), <span class="cf">function</span>(a) <span class="fu">mean_demand</span>(demand_r5, <span class="dv">2</span>, a))</span>
+<span id="cb12-60"><a href="#cb12-60" tabindex="-1"></a>delta_r    <span class="ot">&lt;-</span> d_policy_r <span class="sc">-</span> d_base_r</span>
+<span id="cb12-61"><a href="#cb12-61" tabindex="-1"></a></span>
+<span id="cb12-62"><a href="#cb12-62" tabindex="-1"></a><span class="co"># Apollo: predict at baseline and policy databases</span></span>
+<span id="cb12-63"><a href="#cb12-63" tabindex="-1"></a><span class="co"># Policy database: same additive change as rmdcev (+ 0.01 * mean_price_j per alt)</span></span>
+<span id="cb12-64"><a href="#cb12-64" tabindex="-1"></a>database5_pol <span class="ot">&lt;-</span> database5</span>
+<span id="cb12-65"><a href="#cb12-65" tabindex="-1"></a><span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>J5) {</span>
+<span id="cb12-66"><a href="#cb12-66" tabindex="-1"></a>  database5_pol[[<span class="fu">paste0</span>(<span class="st">&quot;price_&quot;</span>, j)]] <span class="ot">&lt;-</span> database5[[<span class="fu">paste0</span>(<span class="st">&quot;price_&quot;</span>, j)]] <span class="sc">+</span> price_change[j]</span>
+<span id="cb12-67"><a href="#cb12-67" tabindex="-1"></a>}</span>
+<span id="cb12-68"><a href="#cb12-68" tabindex="-1"></a><span class="co"># Recompute quant_num at observed quantities under new prices</span></span>
+<span id="cb12-69"><a href="#cb12-69" tabindex="-1"></a>pj_xj_pol <span class="ot">&lt;-</span> <span class="fu">Reduce</span>(<span class="st">&quot;+&quot;</span>, <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span>J5, <span class="cf">function</span>(j)</span>
+<span id="cb12-70"><a href="#cb12-70" tabindex="-1"></a>  database5_pol[[<span class="fu">paste0</span>(<span class="st">&quot;price_&quot;</span>, j)]] <span class="sc">*</span> database5_pol[[<span class="fu">paste0</span>(<span class="st">&quot;quant_&quot;</span>, j)]]))</span>
+<span id="cb12-71"><a href="#cb12-71" tabindex="-1"></a>database5_pol<span class="sc">$</span>quant_num <span class="ot">&lt;-</span> database5_pol<span class="sc">$</span>income <span class="sc">-</span> pj_xj_pol</span>
+<span id="cb12-72"><a href="#cb12-72" tabindex="-1"></a></span>
+<span id="cb12-73"><a href="#cb12-73" tabindex="-1"></a>ai5_pol <span class="ot">&lt;-</span> <span class="fu">suppressMessages</span>(</span>
+<span id="cb12-74"><a href="#cb12-74" tabindex="-1"></a>  <span class="fu">apollo_validateInputs</span>(<span class="at">apollo_beta =</span> fit_a5<span class="sc">$</span>estimate, <span class="at">apollo_fixed =</span> <span class="fu">character</span>(<span class="dv">0</span>),</span>
+<span id="cb12-75"><a href="#cb12-75" tabindex="-1"></a>                        <span class="at">database =</span> database5_pol, <span class="at">apollo_control =</span> ac5))</span>
+<span id="cb12-76"><a href="#cb12-76" tabindex="-1"></a></span>
+<span id="cb12-77"><a href="#cb12-77" tabindex="-1"></a>t_apollo5_base <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb12-78"><a href="#cb12-78" tabindex="-1"></a>  pred_base <span class="ot">&lt;-</span> <span class="fu">suppressMessages</span>(<span class="fu">suppressWarnings</span>(</span>
+<span id="cb12-79"><a href="#cb12-79" tabindex="-1"></a>    <span class="fu">apollo_prediction</span>(fit_a5, apollo_probabilities_j5, ai5,</span>
+<span id="cb12-80"><a href="#cb12-80" tabindex="-1"></a>                      <span class="at">prediction_settings =</span> <span class="fu">list</span>(<span class="at">nRep =</span> <span class="dv">100</span>, <span class="at">silent =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb12-81"><a href="#cb12-81" tabindex="-1"></a>  ))</span>
+<span id="cb12-82"><a href="#cb12-82" tabindex="-1"></a>)</span>
+<span id="cb12-83"><a href="#cb12-83" tabindex="-1"></a>t_apollo5_pol <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb12-84"><a href="#cb12-84" tabindex="-1"></a>  pred_pol  <span class="ot">&lt;-</span> <span class="fu">suppressMessages</span>(<span class="fu">suppressWarnings</span>(</span>
+<span id="cb12-85"><a href="#cb12-85" tabindex="-1"></a>    <span class="fu">apollo_prediction</span>(fit_a5, apollo_probabilities_j5, ai5_pol,</span>
+<span id="cb12-86"><a href="#cb12-86" tabindex="-1"></a>                      <span class="at">prediction_settings =</span> <span class="fu">list</span>(<span class="at">nRep =</span> <span class="dv">100</span>, <span class="at">silent =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb12-87"><a href="#cb12-87" tabindex="-1"></a>  ))</span>
+<span id="cb12-88"><a href="#cb12-88" tabindex="-1"></a>)</span>
+<span id="cb12-89"><a href="#cb12-89" tabindex="-1"></a>t_apollo5 <span class="ot">&lt;-</span> t_apollo5_base <span class="sc">+</span> t_apollo5_pol</span>
+<span id="cb12-90"><a href="#cb12-90" tabindex="-1"></a></span>
+<span id="cb12-91"><a href="#cb12-91" tabindex="-1"></a>delta_a <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span>J5, <span class="cf">function</span>(j) {</span>
+<span id="cb12-92"><a href="#cb12-92" tabindex="-1"></a>  <span class="fu">mean</span>(pred_pol[[<span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, j, <span class="st">&quot;_cont_mean&quot;</span>)]]) <span class="sc">-</span></span>
+<span id="cb12-93"><a href="#cb12-93" tabindex="-1"></a>  <span class="fu">mean</span>(pred_base[[<span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, j, <span class="st">&quot;_cont_mean&quot;</span>)]])</span>
+<span id="cb12-94"><a href="#cb12-94" tabindex="-1"></a>})</span>
+<span id="cb12-95"><a href="#cb12-95" tabindex="-1"></a></span>
+<span id="cb12-96"><a href="#cb12-96" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;=== Demand change: 1% price increase (n=500, J=5) ===</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb12-97"><a href="#cb12-97" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%-12s %8s %8s %8s</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="st">&quot;Alt&quot;</span>, <span class="st">&quot;rmdcev&quot;</span>, <span class="st">&quot;Apollo&quot;</span>, <span class="st">&quot;Diff&quot;</span>))</span>
+<span id="cb12-98"><a href="#cb12-98" tabindex="-1"></a><span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>J5) {</span>
+<span id="cb12-99"><a href="#cb12-99" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;alt%-9d %8.4f %8.4f %8.4f</span><span class="sc">\n</span><span class="st">&quot;</span>, j, delta_r[j], delta_a[j],</span>
+<span id="cb12-100"><a href="#cb12-100" tabindex="-1"></a>              <span class="fu">abs</span>(delta_r[j] <span class="sc">-</span> delta_a[j])))</span>
+<span id="cb12-101"><a href="#cb12-101" tabindex="-1"></a>}</span>
+<span id="cb12-102"><a href="#cb12-102" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Mean abs difference: %.5f</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">mean</span>(<span class="fu">abs</span>(delta_r <span class="sc">-</span> delta_a))))</span>
+<span id="cb12-103"><a href="#cb12-103" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;rmdcev %% change: %s%%</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb12-104"><a href="#cb12-104" tabindex="-1"></a>            <span class="fu">paste</span>(<span class="fu">round</span>(<span class="dv">100</span> <span class="sc">*</span> delta_r <span class="sc">/</span> d_base_r, <span class="dv">2</span>), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)))</span>
+<span id="cb12-105"><a href="#cb12-105" tabindex="-1"></a></span>
+<span id="cb12-106"><a href="#cb12-106" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Timing:  rmdcev %.2f s  |  Apollo (2 predictions) %.2f s</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb12-107"><a href="#cb12-107" tabindex="-1"></a>            t_rmdcev5[<span class="st">&quot;elapsed&quot;</span>], t_apollo5[<span class="st">&quot;elapsed&quot;</span>]))</span></code></pre></div>
+</div>
+<div id="b-demand-simulation-timing-rmdcev-vs-apollo-n500" class="section level3">
+<h3>3b · Demand simulation timing (rmdcev vs Apollo, n=500)</h3>
+<p>Apollo has no batch simulation pipeline for multiple policies. The
+equivalent workflow requires calling <code>apollo_prediction()</code>
+twice per policy (baseline + policy database) with re-validated inputs,
+looping over policies in R. Because <code>apollo_prediction()</code>
+requires a concrete (non-factory) probability function, we generate one
+dynamically for each J using <code>eval(parse())</code>.</p>
+<p>Both packages use 100 draws (<code>nerrs = 100</code> for rmdcev;
+<code>nRep = 100</code> for Apollo). rmdcev runs unconditional draws via
+its compiled C++ engine; Apollo runs its interpreted R loop. Timings are
+the mean of 3 replicates.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># Dynamically generate a concrete apollo_probabilities function for any J.</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co"># apollo_prediction() does source-code inspection and cannot use factory closures,</span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="co"># so we build and eval() a function body with the right number of alternatives.</span></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>make_apollo_prob_concrete <span class="ot">&lt;-</span> <span class="cf">function</span>(nalts, <span class="at">npsi_j =</span> <span class="dv">1</span>, <span class="at">ind_col =</span> <span class="st">&quot;b2&quot;</span>) {</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  all_str     <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&#39;c(&quot;outside&quot;, &#39;</span>, <span class="fu">paste0</span>(<span class="st">&#39;&quot;alt&#39;</span>, <span class="fu">seq_len</span>(nalts), <span class="st">&#39;&quot;&#39;</span>, <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>), <span class="st">&quot;)&quot;</span>)</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  V_items     <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, <span class="fu">seq_len</span>(nalts), <span class="st">&quot; = psi_ind * &quot;</span>, ind_col,</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>                              <span class="st">&quot; + psi_j1 * b1_&quot;</span>, <span class="fu">seq_len</span>(nalts)), <span class="at">collapse =</span> <span class="st">&quot;,</span><span class="sc">\n</span><span class="st">    &quot;</span>)</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>  alpha_items <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">c</span>(<span class="st">&quot;outside = 0&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, <span class="fu">seq_len</span>(nalts), <span class="st">&quot; = 0&quot;</span>)), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)</span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>  gamma_items <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">c</span>(<span class="st">&quot;outside = 1&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, <span class="fu">seq_len</span>(nalts), <span class="st">&quot; = exp(ln_g&quot;</span>, <span class="fu">seq_len</span>(nalts), <span class="st">&quot;)&quot;</span>)), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)</span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  choice_items <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">c</span>(<span class="st">&quot;outside = quant_num&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, <span class="fu">seq_len</span>(nalts), <span class="st">&quot; = quant_&quot;</span>, <span class="fu">seq_len</span>(nalts))), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)</span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>  cost_items  <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">c</span>(<span class="st">&quot;outside = 1&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, <span class="fu">seq_len</span>(nalts), <span class="st">&quot; = price_&quot;</span>, <span class="fu">seq_len</span>(nalts))), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)</span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a>  avail_items <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">c</span>(<span class="st">&quot;outside = 1&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;alt&quot;</span>, <span class="fu">seq_len</span>(nalts), <span class="st">&quot; = 1&quot;</span>)), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)</span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a>  <span class="fu">eval</span>(<span class="fu">parse</span>(<span class="at">text =</span> <span class="fu">sprintf</span>(</span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a><span class="st">&#39;function(apollo_beta, apollo_inputs, functionality = &quot;estimate&quot;) {</span></span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a><span class="st">  apollo_attach(apollo_beta, apollo_inputs)</span></span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a><span class="st">  on.exit(apollo_detach(apollo_beta, apollo_inputs))</span></span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a><span class="st">  P &lt;- list()</span></span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a><span class="st">  V &lt;- list(outside = 0, %s)</span></span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a><span class="st">  mdcev_settings &lt;- list(</span></span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a><span class="st">    alternatives = %s, budget = income, V = V,</span></span>
+<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a><span class="st">    alpha = list(%s), gamma = list(%s), sigma = exp(ln_sigma),</span></span>
+<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a><span class="st">    continuousChoice = list(%s), cost = list(%s), avail = list(%s)</span></span>
+<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a><span class="st">  )</span></span>
+<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a><span class="st">  P[[&quot;model&quot;]] &lt;- apollo_mdcev(mdcev_settings, functionality)</span></span>
+<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a><span class="st">  P &lt;- apollo_prepareProb(P, apollo_inputs, functionality)</span></span>
+<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a><span class="st">  return(P)</span></span>
+<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a><span class="st">}&#39;</span>, V_items, all_str, alpha_items, gamma_items, choice_items, cost_items, avail_items)))</span>
+<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>timing_sim <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">100</span>), <span class="cf">function</span>(J) {</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="fu">set.seed</span>(J)</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>  sim <span class="ot">&lt;-</span> <span class="fu">GenerateMDCEVData</span>(</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>    <span class="at">model =</span> <span class="st">&quot;hybrid0&quot;</span>, <span class="at">nobs =</span> n, <span class="at">nalts =</span> J,</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>    <span class="at">psi_j_parms =</span> <span class="fl">0.5</span>, <span class="at">psi_i_parms =</span> <span class="sc">-</span><span class="fl">1.5</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>    <span class="at">gamma_parms =</span> <span class="fu">rep</span>(<span class="dv">5</span>, J), <span class="at">scale_parms =</span> <span class="fl">1.0</span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>  )</span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a></span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>  <span class="co"># ── rmdcev ──────────────────────────────────────────────────────────────</span></span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a>  fit_r <span class="ot">&lt;-</span> <span class="fu">mdcev</span>(<span class="sc">~</span> b1 <span class="sc">+</span> b2, <span class="at">data =</span> sim<span class="sc">$</span>data, <span class="at">psi_ascs =</span> <span class="dv">0</span>, <span class="at">model =</span> <span class="st">&quot;hybrid0&quot;</span>,</span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a>                 <span class="at">algorithm =</span> <span class="st">&quot;MLE&quot;</span>, <span class="at">print_iterations =</span> <span class="cn">FALSE</span>, <span class="at">backend =</span> <span class="st">&quot;rstan&quot;</span>)</span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a>  bp   <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">as.numeric</span>(fit_r<span class="sc">$</span>stan_data<span class="sc">$</span>price_j), <span class="at">nrow =</span> n)</span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a>  pc   <span class="ot">&lt;-</span> <span class="fl">0.01</span> <span class="sc">*</span> <span class="fu">colMeans</span>(bp)</span>
+<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a>  pols <span class="ot">&lt;-</span> <span class="fu">CreateBlankPolicies</span>(<span class="at">npols =</span> <span class="dv">2</span>, fit_r, <span class="at">price_change_only =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a>  pols<span class="sc">$</span>price_p[[<span class="dv">2</span>]] <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, pc)</span>
+<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a>  df_s <span class="ot">&lt;-</span> <span class="fu">PrepareSimulationData</span>(fit_r, pols, <span class="at">nsims =</span> <span class="dv">1</span>)</span>
+<span id="cb14-19"><a href="#cb14-19" tabindex="-1"></a></span>
+<span id="cb14-20"><a href="#cb14-20" tabindex="-1"></a>  rmdcev_times <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, <span class="cf">function</span>(r)</span>
+<span id="cb14-21"><a href="#cb14-21" tabindex="-1"></a>    <span class="fu">system.time</span>(<span class="fu">mdcev.sim</span>(df_s<span class="sc">$</span>df_indiv, <span class="at">df_common =</span> df_s<span class="sc">$</span>df_common,</span>
+<span id="cb14-22"><a href="#cb14-22" tabindex="-1"></a>                          <span class="at">sim_options =</span> df_s<span class="sc">$</span>sim_options,</span>
+<span id="cb14-23"><a href="#cb14-23" tabindex="-1"></a>                          <span class="at">cond_err =</span> <span class="dv">0</span>, <span class="at">nerrs =</span> <span class="dv">100</span>, <span class="at">sim_type =</span> <span class="st">&quot;demand&quot;</span>))[<span class="st">&quot;elapsed&quot;</span>])</span>
+<span id="cb14-24"><a href="#cb14-24" tabindex="-1"></a></span>
+<span id="cb14-25"><a href="#cb14-25" tabindex="-1"></a>  <span class="co"># ── Apollo ──────────────────────────────────────────────────────────────</span></span>
+<span id="cb14-26"><a href="#cb14-26" tabindex="-1"></a>  database <span class="ot">&lt;-</span> <span class="fu">to_wide</span>(sim<span class="sc">$</span>data, J)</span>
+<span id="cb14-27"><a href="#cb14-27" tabindex="-1"></a>  ac  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">modelName =</span> <span class="fu">paste0</span>(<span class="st">&quot;apl_&quot;</span>, J), <span class="at">modelDescr =</span> <span class="st">&quot;&quot;</span>, <span class="at">indivID =</span> <span class="st">&quot;id&quot;</span>,</span>
+<span id="cb14-28"><a href="#cb14-28" tabindex="-1"></a>              <span class="at">outputDirectory =</span> <span class="fu">tempdir</span>(), <span class="at">nCores =</span> <span class="dv">1</span>)</span>
+<span id="cb14-29"><a href="#cb14-29" tabindex="-1"></a>  ab  <span class="ot">&lt;-</span> <span class="fu">make_apollo_beta</span>(J, <span class="at">npsi_j =</span> <span class="dv">1</span>)</span>
+<span id="cb14-30"><a href="#cb14-30" tabindex="-1"></a>  pfn <span class="ot">&lt;-</span> <span class="fu">make_apollo_prob_concrete</span>(J)</span>
+<span id="cb14-31"><a href="#cb14-31" tabindex="-1"></a>  ai  <span class="ot">&lt;-</span> <span class="fu">apollo_validateInputs</span>(<span class="at">apollo_beta =</span> ab, <span class="at">apollo_fixed =</span> <span class="fu">character</span>(<span class="dv">0</span>),</span>
+<span id="cb14-32"><a href="#cb14-32" tabindex="-1"></a>                               <span class="at">database =</span> database, <span class="at">apollo_control =</span> ac)</span>
+<span id="cb14-33"><a href="#cb14-33" tabindex="-1"></a>  fit_a <span class="ot">&lt;-</span> <span class="fu">apollo_estimate</span>(ab, <span class="fu">character</span>(<span class="dv">0</span>), pfn, ai,</span>
+<span id="cb14-34"><a href="#cb14-34" tabindex="-1"></a>             <span class="at">estimate_settings =</span> <span class="fu">list</span>(<span class="at">writeIter =</span> <span class="cn">FALSE</span>, <span class="at">hessianRoutine =</span> <span class="st">&quot;none&quot;</span>,</span>
+<span id="cb14-35"><a href="#cb14-35" tabindex="-1"></a>                                      <span class="at">printLevel =</span> <span class="dv">0</span><span class="dt">L</span>))</span>
+<span id="cb14-36"><a href="#cb14-36" tabindex="-1"></a></span>
+<span id="cb14-37"><a href="#cb14-37" tabindex="-1"></a>  <span class="co"># Policy database: 1% additive price increase</span></span>
+<span id="cb14-38"><a href="#cb14-38" tabindex="-1"></a>  db_pol <span class="ot">&lt;-</span> database</span>
+<span id="cb14-39"><a href="#cb14-39" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq_len</span>(J)) db_pol[[<span class="fu">paste0</span>(<span class="st">&quot;price_&quot;</span>, j)]] <span class="ot">&lt;-</span> database[[<span class="fu">paste0</span>(<span class="st">&quot;price_&quot;</span>, j)]] <span class="sc">+</span> pc[j]</span>
+<span id="cb14-40"><a href="#cb14-40" tabindex="-1"></a>  pj_xj_pol <span class="ot">&lt;-</span> <span class="fu">Reduce</span>(<span class="st">&quot;+&quot;</span>, <span class="fu">lapply</span>(<span class="fu">seq_len</span>(J), <span class="cf">function</span>(j)</span>
+<span id="cb14-41"><a href="#cb14-41" tabindex="-1"></a>    db_pol[[<span class="fu">paste0</span>(<span class="st">&quot;price_&quot;</span>, j)]] <span class="sc">*</span> db_pol[[<span class="fu">paste0</span>(<span class="st">&quot;quant_&quot;</span>, j)]]))</span>
+<span id="cb14-42"><a href="#cb14-42" tabindex="-1"></a>  db_pol<span class="sc">$</span>quant_num <span class="ot">&lt;-</span> db_pol<span class="sc">$</span>income <span class="sc">-</span> pj_xj_pol</span>
+<span id="cb14-43"><a href="#cb14-43" tabindex="-1"></a>  ai_pol <span class="ot">&lt;-</span> <span class="fu">apollo_validateInputs</span>(<span class="at">apollo_beta =</span> fit_a<span class="sc">$</span>estimate, <span class="at">apollo_fixed =</span> <span class="fu">character</span>(<span class="dv">0</span>),</span>
+<span id="cb14-44"><a href="#cb14-44" tabindex="-1"></a>                                  <span class="at">database =</span> db_pol, <span class="at">apollo_control =</span> ac)</span>
+<span id="cb14-45"><a href="#cb14-45" tabindex="-1"></a></span>
+<span id="cb14-46"><a href="#cb14-46" tabindex="-1"></a>  apollo_times <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, <span class="cf">function</span>(r) {</span>
+<span id="cb14-47"><a href="#cb14-47" tabindex="-1"></a>    t1 <span class="ot">&lt;-</span> <span class="fu">system.time</span>(<span class="fu">apollo_prediction</span>(fit_a, pfn, ai,</span>
+<span id="cb14-48"><a href="#cb14-48" tabindex="-1"></a>           <span class="at">prediction_settings =</span> <span class="fu">list</span>(<span class="at">nRep =</span> <span class="dv">100</span>, <span class="at">silent =</span> <span class="cn">TRUE</span>)))[<span class="st">&quot;elapsed&quot;</span>]</span>
+<span id="cb14-49"><a href="#cb14-49" tabindex="-1"></a>    t2 <span class="ot">&lt;-</span> <span class="fu">system.time</span>(<span class="fu">apollo_prediction</span>(fit_a, pfn, ai_pol,</span>
+<span id="cb14-50"><a href="#cb14-50" tabindex="-1"></a>           <span class="at">prediction_settings =</span> <span class="fu">list</span>(<span class="at">nRep =</span> <span class="dv">100</span>, <span class="at">silent =</span> <span class="cn">TRUE</span>)))[<span class="st">&quot;elapsed&quot;</span>]</span>
+<span id="cb14-51"><a href="#cb14-51" tabindex="-1"></a>    t1 <span class="sc">+</span> t2</span>
+<span id="cb14-52"><a href="#cb14-52" tabindex="-1"></a>  })</span>
+<span id="cb14-53"><a href="#cb14-53" tabindex="-1"></a></span>
+<span id="cb14-54"><a href="#cb14-54" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">n =</span> n, <span class="at">J =</span> J,</span>
+<span id="cb14-55"><a href="#cb14-55" tabindex="-1"></a>             <span class="at">rmdcev_mean =</span> <span class="fu">round</span>(<span class="fu">mean</span>(rmdcev_times), <span class="dv">2</span>),</span>
+<span id="cb14-56"><a href="#cb14-56" tabindex="-1"></a>             <span class="at">rmdcev_sd   =</span> <span class="fu">round</span>(<span class="fu">sd</span>(rmdcev_times),   <span class="dv">2</span>),</span>
+<span id="cb14-57"><a href="#cb14-57" tabindex="-1"></a>             <span class="at">apollo_mean =</span> <span class="fu">round</span>(<span class="fu">mean</span>(apollo_times),  <span class="dv">2</span>),</span>
+<span id="cb14-58"><a href="#cb14-58" tabindex="-1"></a>             <span class="at">apollo_sd   =</span> <span class="fu">round</span>(<span class="fu">sd</span>(apollo_times),    <span class="dv">2</span>),</span>
+<span id="cb14-59"><a href="#cb14-59" tabindex="-1"></a>             <span class="at">speedup     =</span> <span class="fu">round</span>(<span class="fu">mean</span>(apollo_times) <span class="sc">/</span> <span class="fu">mean</span>(rmdcev_times), <span class="dv">1</span>))</span>
+<span id="cb14-60"><a href="#cb14-60" tabindex="-1"></a>})</span>
+<span id="cb14-61"><a href="#cb14-61" tabindex="-1"></a></span>
+<span id="cb14-62"><a href="#cb14-62" tabindex="-1"></a>timing_sim <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, timing_sim)</span>
+<span id="cb14-63"><a href="#cb14-63" tabindex="-1"></a><span class="fu">print</span>(timing_sim, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<hr />
+</div>
+</div>
+<div id="results-summary" class="section level2">
+<h2>4 · Results summary</h2>
+<div id="mle-estimation" class="section level3">
+<h3>MLE estimation</h3>
+<p>Results from a Windows laptop (Intel i7, 16 GB RAM), hybrid0 model, 3
+replicates per cell.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="right">n</th>
+<th align="right">J</th>
+<th align="right">rmdcev (s)</th>
+<th align="right">Apollo (s)</th>
+<th align="right">Speedup</th>
+<th align="right">LL diff</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">500</td>
+<td align="right">50</td>
+<td align="right">1.3</td>
+<td align="right">7.2</td>
+<td align="right">5.7×</td>
+<td align="right">3.5e-04</td>
+</tr>
+<tr class="even">
+<td align="right">1000</td>
+<td align="right">50</td>
+<td align="right">2.6</td>
+<td align="right">9.5</td>
+<td align="right">3.6×</td>
+<td align="right">2.4e-04</td>
+</tr>
+<tr class="odd">
+<td align="right">500</td>
+<td align="right">100</td>
+<td align="right">5.1</td>
+<td align="right">34.4</td>
+<td align="right">6.8×</td>
+<td align="right">3.6e-04</td>
+</tr>
+<tr class="even">
+<td align="right">5000</td>
+<td align="right">50</td>
+<td align="right">24.3</td>
+<td align="right">40.2</td>
+<td align="right">1.7×</td>
+<td align="right">2.3e-03</td>
+</tr>
+<tr class="odd">
+<td align="right">5000</td>
+<td align="right">100</td>
+<td align="right">53.1</td>
+<td align="right">170.0</td>
+<td align="right">3.2×</td>
+<td align="right">2.5e-02</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="demand-simulation-100-draws-per-individual-3-replicates-n500" class="section level3">
+<h3>Demand simulation (100 draws per individual, 3 replicates,
+n=500)</h3>
+<p>Fit once per cell; rmdcev timed 3× with 100 unconditional draws via
+<code>mdcev.sim()</code>. Apollo timed 3× as two
+<code>apollo_prediction()</code> calls (baseline + policy), the minimum
+required per policy scenario. Apollo has no batch pipeline — each policy
+requires a separate call with re-validated inputs. Results from rmdcev
+1.3.2 (Windows laptop, Intel i7, 16 GB RAM).</p>
+<table>
+<colgroup>
+<col width="3%" />
+<col width="3%" />
+<col width="21%" />
+<col width="18%" />
+<col width="21%" />
+<col width="18%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="right">n</th>
+<th align="right">J</th>
+<th align="right">rmdcev mean (s)</th>
+<th align="right">rmdcev sd (s)</th>
+<th align="right">Apollo mean (s)</th>
+<th align="right">Apollo sd (s)</th>
+<th align="right">Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">500</td>
+<td align="right">50</td>
+<td align="right">1.44</td>
+<td align="right">0.06</td>
+<td align="right">15.49</td>
+<td align="right">2.36</td>
+<td align="right">10.7×</td>
+</tr>
+<tr class="even">
+<td align="right">500</td>
+<td align="right">100</td>
+<td align="right">3.18</td>
+<td align="right">0.15</td>
+<td align="right">30.24</td>
+<td align="right">5.55</td>
+<td align="right">9.5×</td>
+</tr>
+</tbody>
+</table>
+<p>Simulation time scales approximately linearly with <span class="math inline">\(n \times J\)</span> (rmdcev’s compiled C++ loop
+runs at ~4–5 million individual-alternative-draw operations per second
+on this hardware).</p>
+</div>
+<div id="demand-change-convergence-n500-j5-1-price-increase-same-additive-policy" class="section level3">
+<h3>Demand change convergence (n=500, J=5, 1% price increase, same
+additive policy)</h3>
+<p>Both packages apply an additive constant of <span class="math inline">\(0.01 \times \bar{p}_j\)</span> per alternative and
+use 100 MC draws (<code>nerrs = 100</code> for rmdcev;
+<code>nRep = 100</code> for Apollo). rmdcev completed in <strong>0.50
+s</strong>; Apollo (two <code>apollo_prediction()</code> calls) took
+<strong>3.60 s</strong> (~7×).</p>
+<table>
+<thead>
+<tr class="header">
+<th align="right">Alt</th>
+<th align="right">rmdcev Δ demand</th>
+<th align="right">Apollo Δ demand</th>
+<th align="right">|Diff|</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">−1.4993</td>
+<td align="right">−1.4948</td>
+<td align="right">0.0044</td>
+</tr>
+<tr class="even">
+<td align="right">2</td>
+<td align="right">−1.4325</td>
+<td align="right">−1.4409</td>
+<td align="right">0.0085</td>
+</tr>
+<tr class="odd">
+<td align="right">3</td>
+<td align="right">−1.1040</td>
+<td align="right">−1.0960</td>
+<td align="right">0.0080</td>
+</tr>
+<tr class="even">
+<td align="right">4</td>
+<td align="right">−1.3146</td>
+<td align="right">−1.3202</td>
+<td align="right">0.0056</td>
+</tr>
+<tr class="odd">
+<td align="right">5</td>
+<td align="right">−1.2062</td>
+<td align="right">−1.2006</td>
+<td align="right">0.0057</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Mean absolute difference: 0.006</strong> — MC noise from
+independent RNG streams, not a model discrepancy. All alternatives show
+~1.5% demand reduction from the 1% cost increase, consistent with
+near-unit elasticity around the estimated satiation parameters.</p>
+<p>Key findings:</p>
+<ul>
+<li><strong>Demand convergence</strong>: when policies are specified
+identically and both packages use 100 draws, rmdcev and Apollo agree to
+within ~0.006 units across all alternatives. The residual difference
+reflects MC noise from independent RNG streams, not a model
+discrepancy.</li>
+<li><strong>Simulation speed</strong>: rmdcev’s compiled C++ engine is
+<strong>10.7× faster</strong> at n=500, J=50 and <strong>9.5×
+faster</strong> at n=500, J=100. Apollo’s
+<code>apollo_prediction()</code> requires two separate calls per policy
+(baseline + policy database with re-validated inputs) and runs the
+Pinjari-Bhat demand loop in interpreted R. rmdcev processes all policies
+in a single compiled C++ pass, making Apollo impractical for large n × J
+grids or multi-policy scenarios.</li>
+<li><strong>Log-likelihood</strong>: rmdcev and Apollo agree to &lt;0.05
+LL units across all MLE cells.</li>
+<li><strong>MLE speed</strong>: rmdcev is 1.7–6.8× faster than Apollo,
+driven by Stan analytical gradients vs Apollo’s finite-difference
+Jacobian. The gap grows with J because each γ parameter requires an
+extra likelihood evaluation in Apollo.</li>
+</ul>
+</div>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
